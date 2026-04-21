@@ -77,7 +77,7 @@ h2 {
     flex-direction: column;
     justify-content: space-between;
 }
-
+/*
 .card:hover { transform: translateY(-5px); }
 
 .btn {
@@ -90,7 +90,42 @@ h2 {
     border-radius: 5px;
     font-size: 0.9rem;
 }
+*/
+.card {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    /* Adicionamos o transition aqui para o card também */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; 
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 
+.card:hover { 
+    transform: translateY(-5px); 
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* Sombra um pouco mais forte ao subir */
+}
+
+.btn {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    text-align: center;
+    
+    transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.btn:hover { 
+    filter: brightness(1.2); 
+    transform: scale(1.02); 
+}
 footer {
     text-align: center;
     padding: 2rem;
