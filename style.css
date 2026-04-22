@@ -1,5 +1,5 @@
 :root {
-    --primary-color: #2563eb; /* Azul moderno */
+    --primary-color: #2563eb; 
     --bg-color: #f8fafc;
     --text-color: #1e293b;
     --card-bg: #ffffff;
@@ -96,7 +96,6 @@ h2 {
     padding: 1.5rem;
     border-radius: 8px;
     box-shadow: var(--shadow);
-    /* Adicionamos o transition aqui para o card também */
     transition: transform 0.3s ease, box-shadow 0.3s ease; 
     display: flex;
     flex-direction: column;
@@ -105,7 +104,7 @@ h2 {
 
 .card:hover { 
     transform: translateY(-5px); 
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); /* Sombra um pouco mais forte ao subir */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
 }
 
 .btn {
