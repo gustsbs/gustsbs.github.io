@@ -28,7 +28,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-##🔎 Monitoramento e Status (git status)
+## 🔎 Monitoramento e Status (git status)
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
@@ -42,7 +42,7 @@ Para checar o status de rastreamento dos arquivos
 git status
 ```
 
-##📥 Preparação e Snapshot (git add & git commit)
+## 📥 Preparação e Snapshot (git add & git commit)
 
 Fluxo para mover arquivos modificados para a área de preparação e salvar a versão.
 ### Para adicionar um arquivo específico à área de Staged
@@ -77,19 +77,19 @@ git commit -a -m "Aplica o commit e adiciona a informação sobre alterações"
 
 ## 📜 Histórico de Commits (git log)
 
-### Para inspecionar a linha do tempo e auditoria do repositório.
+Para inspecionar a linha do tempo e auditoria do repositório.
 
-## Para mostrar o log geral de commits
+### Para mostrar o log geral de commits
 ```bash
 git log
 ```
 
-## Para mostrar o histórico exibindo as linhas exatas de código modificadas
+### Para mostrar o histórico exibindo as linhas exatas de código modificadas
 ```bash
 git log -p
 ```
 
-## ⏪ Navegação e Desfazer Código (git checkout & git reset)
+### ⏪ Navegação e Desfazer Código (git checkout & git reset)
 
 Ações para restaurar pontos antigos do histórico ou reverter commits com erros.
 
