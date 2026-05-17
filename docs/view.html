@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador DevOps Docs</title>
+    <link rel="stylesheet" href="../style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Estilização extra para blocos de comando ficarem bonitos no seu padrão */
+        pre { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 1rem 0; }
+        code { font-family: monospace; font-size: 0.95rem; }
+        p code { background: #e2e8f0; padding: 0.2rem 0.4rem; border-radius: 4px; color: #e11d48; }
+        #render-area h1, #render-area h2, #render-area h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        #render-area ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="doc-title">Carregando...</h1>
+        <nav>
+            <a href="./index.html">📋 Menu de Módulos</a>
+        </nav>
+    </header>
+
+    <main class="container">
+        <article id="render-area">
+            </article>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 - Built by Gustavo Starepravo de Brito dos Santos</p>
+    </footer>
+
+    <script>
+        // Captura o nome do arquivo da URL (ex: view.html?doc=kubernetes)
+        const params = new URLSearchParams(window.location.search);
+        const doc = params.get('doc') || 'kubernetes';
+        
+        document.getElementById('doc-title').innerText = doc.toUpperCase() + " | Documentação";
+
+        // Busca o arquivo .md puro na pasta e injeta no seu layout
+        fetch(`${doc}.md`)
+            .then(res => {
+                if(!res.ok) throw new Error("Documento não encontrado.");
+                return res.text();
+            })
+            .then(markdown => {
+                // Remove o bloco Front Matter (---) se ele existir no topo do arquivo para não sujar a tela
+                const cleanMarkdown = markdown.replace(/^---[\s\S]*?---/, '');
+                document.getElementById('render-area').innerHTML = marked.parse(cleanMarkdown);
+            })
+            .catch(err => {
+                document.getElementById('render-area').innerHTML = `<p style="color: var(--primary-color);">⚠️ ${err.message}</p>`;
+            });
+    </script>
+</body>
+</html>
