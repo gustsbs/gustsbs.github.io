@@ -14,7 +14,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 
 ---
 
-## ⚙️ Configurações Iniciais (`git config`) {#git-status}
+## ⚙️ Configurações Iniciais (`git config`) {#config-inicial}
 Para parametrizar o ambiente global do Git no host de desenvolvimento.
 
 ### Para configurar a identificação global do usuário
@@ -38,7 +38,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-## Monitoramento e Status
+## Monitoramento e Status {#monitoramento-e-status}
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
