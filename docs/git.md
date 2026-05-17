@@ -38,7 +38,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-## 2. <span id="monitoramento-e-status">:chart: Monitoramento e Status</span>
+## 2. <span id="monitoramento-e-status">🔍Monitoramento e Status</span>
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
