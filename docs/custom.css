@@ -1,0 +1,42 @@
+/* Centraliza e limita a largura máxima do site na tela */
+.wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  display: flex;
+  gap: 40px;
+}
+
+/* Alinha a barra lateral esquerda */
+header {
+  width: 250px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 40px;
+  height: fit-content;
+}
+
+/* Alinha e expande o conteúdo principal */
+section {
+  width: 100%;
+  max-width: 600px;
+}
+
+/* Ajuste fino para o rodapé do tema */
+footer {
+  margin-top: 40px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+/* Responsividade para telas de celular */
+@media screen and (max-width: 768px) {
+  .wrapper {
+    flex-direction: column;
+    gap: 20px;
+  }
+  header {
+    width: 100%;
+    position: static;
+  }
+}

@@ -4,3 +4,5 @@ permalink: /:path/:basename.html
 include:
   - docs
 markdown: kramdown
+
+custom_css: /docs/custom.css
