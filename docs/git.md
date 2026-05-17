@@ -4,7 +4,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 
 ## 📑 Índice de Tópicos
 1. [⚙️ Configurações Iniciais](#config-inicial)
-2. [🔎 Monitoramento e Status](#git-status)
+2. [Monitoramento e Status](#monitoramento-e-status)
 3. [📥 Preparação e Snapshot](#git-add-commit)
 4. [📜 Histórico de Commits (git log)](#git-log)
 5. [⏪ Navegação e Desfazer Código](#git-checkout-reset)
@@ -38,7 +38,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-## 🔎 Monitoramento e Status (git status) {#git-status}
+## Monitoramento e Status
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
