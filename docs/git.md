@@ -271,9 +271,9 @@ git show v2.0
 git tag -d 'v2.0'
 ```
 
-## <spam id="desconsiderar-ignore"> 🙈 10. Desconsiderando Arquivos (.gitignore)</span>
 ## <span id="gitignore">🙈 10. Desconsiderando Arquivos (`.gitignore`)</span>
 Regras de sintaxe para impedir que arquivos locais específicos (como logs de servidores, diretórios de dependências ou arquivos temporários) entrem no rastreamento do Git.
+
 
 | Padrão de Sintaxe | Comportamento e Impacto no Diretório |
 | :--- | :--- |
