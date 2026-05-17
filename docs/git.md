@@ -10,8 +10,9 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 5. [Navegação e Desfazer Código](#git-checkout-reset)
 6. [Gerenciamento de Branches (git branch)](#git-branch)
 7. [Integração de Código: Merge vs Rebase](#git-merge-rebase)
-
-
+8. [Repositórios Remotos e Sincronização (git remote & git push](#git-push-remote)
+9. [Definição de Marcos e Versões] (#git-tag)
+10. [Desconsiderando Arquivos] (#desconsiderar-ignore)
 ---
 
 ## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais (`git config`)</span>
@@ -22,12 +23,18 @@ Para parametrizar o ambiente global do Git no host de desenvolvimento.
 git config --global user.name "Gustavo de Brito dos Santos"
 git config --global user.email "gustbrito@email.com.br"
 ```
-
+### Para salvar as credenciais de acesso no cache temporário do host
+```bash
+git config --global credential.helper cache
+```
 ### Para definir o Vim como editor de texto padrão das mensagens
 ```bash
 git config --global core.editor vim
 ```
-
+### Para definir o comportamento padrão do git pull (desativar rebase automático)
+```bash
+git config pull.rebase false
+```
 ### Para alterar o nome padrão da branch de inicialização
 ```bash
 git config --global init.defaultBranch teste
@@ -101,10 +108,44 @@ git log
 ```bash
 git log -p
 ```
+### Para listar os commits em uma única linha simplificada
+```bash
+git log --oneline
+```
+### Para mostrar apenas uma quantidade específica de commits recentes
+```bash
+git log -n 2
+```
 
-## <span id="git-checkout-reset"> 5. ⏪ Navegação e Desfazer Código (git checkout & git reset)</span>
+### Para filtrar o histórico por um autor específico
+```bash
+git log --author="Gustavo de Brito dos Santos"
+```
+### Para filtrar commits realizados a partir de um período de tempo
+```bash
+git log --after="1 week ago"
+```
+### Para exibir as estatísticas de arquivos modificados e linhas alteradas por commit
+```bash
+git log --stat
+```
 
-Ações para restaurar pontos antigos do histórico ou reverter commits com erros.
+### Para renderizar o histórico de branches em formato de gráfico de linhas no terminal
+```bash
+git log --graph --oneline
+```
+
+### Para isolar e inspecionar o histórico de um arquivo específico
+```bash
+git log nomedoarquivo
+```
+
+## <span id="git-checkout-reset"> 5. ⏪ Navegação e Desfazer Código</span>
+
+### Para selecionar ou alternar para uma branch existente
+```bash
+git branch master
+```
 
 ### Para navegar e recuperar um snapshot específico do histórico
 ```bash
@@ -114,6 +155,10 @@ git checkout 11986923015fab393d4da32d8f8e4b2cc96d99b9
 ### Para retornar do ponto do último commit para a sua branch atual
 ```bash
 git checkout main
+```
+### Para buscar um commit específico de outra branch e aplicá-lo na atual (Cherry-Pick)
+```bash
+git cherry-pick 505a880bc020864bc69ed44599852cd99b679789
 ```
 
 ### Para desfazer o último commit mantendo o estado dos arquivos em staging
@@ -172,3 +217,69 @@ O que faz: Remove temporariamente os seus commits locais, puxa as atualizações
 Prós: Produz um histórico extremamente limpo e fácil de ler.
 
 Contras: Modifica o histórico original do repositório. Nunca deve ser usado em branches públicas compartilhadas no servidor local da instituição (risco de quebrar os clones locais dos outros programadores).
+
+## <span id="git-push-remote"> 8. 🌐 Repositórios Remotos e Sincronização </span>
+
+### Para clonar um repositório remoto para a sua máquina local
+```bash
+git clone git@github.com:MeuRepo/projetoxyz.git
+```
+
+### Para vincular um repositório remoto ao seu diretório local
+```bash
+git remote add origin git@github.com:gustbrito/asterisk.git
+```
+
+### Para enviar os dados pela primeira vez definindo a branch padrão no servidor
+```bash
+git push -u origin main
+```
+
+### Para criar e vincular uma nova branch local diretamente no servidor remoto
+```bash
+git push --set-upstream origin novabranch
+```
+
+### Para comparar as diferenças exatas entre uma branch local e a branch do servidor
+```bash
+git diff branch origin/novabranch
+```
+
+## <span id="git-tag"> 🔖 9. Definição de Marcos e Versões</span>
+
+Tags funcionam como marcos permanentes no histórico (geralmente associados a Releases).
+
+### Para criar uma tag anotada no commit atual (Marcar Versão)
+```bash
+git tag -a v2.0 -m "Versão 2.0"
+```
+### Para criar uma tag anotada retroativa apontando para um hash de commit específico
+```bash
+git tag -a v1.0 -m "Versao 1.0" 505a880bc020864bc69ed44599852cd99b679789
+```
+
+### Para listar todas as tags de versão existentes no repositório
+```bash
+git tag
+```
+### Para exibir os detalhes do commit e os metadados vinculados a uma tag
+```bash
+git show v2.0
+```
+### Para excluir uma tag do repositório local
+```bash
+git tag -d 'v2.0'
+```
+
+## <spam id="desconsiderar-ignore"> 🙈 10. Desconsiderando Arquivos (.gitignore)</span>
+## <span id="gitignore">🙈 10. Desconsiderando Arquivos (`.gitignore`)</span>
+Regras de sintaxe para impedir que arquivos locais específicos (como logs de servidores, diretórios de dependências ou arquivos temporários) entrem no rastreamento do Git.
+
+| Padrão de Sintaxe | Comportamento e Impacto no Diretório |
+| :--- | :--- |
+| **`**/bin`** | **Coringa Duplo:** Ignora qualquer pasta ou arquivo chamado `bin`, independentemente da profundidade do diretório (Ex: `bin/exemplo.log`, `pasta/bin/log.txt`). |
+| **`*/bin/debug.log`** | **Subpasta Relativa:** Ignora o arquivo `debug.log` desde que ele esteja exatamente um nível abaixo de qualquer diretório inicial (Ex: `build/bin/debug.log`). |
+| **`*.log`** | **Extensão Global:** O asterisco funciona como coringa absoluto, ignorando qualquer arquivo do repositório que termine com a extensão `.log`. |
+| **`!bin/*.log`** | **Negação/Exceção:** A exclamação inverte a regra. Significa que todos os arquivos `.log` dentro da pasta `bin` **devem ser rastreados**, agindo como uma exceção às travas globais. |
+| **`teste`** | **Ocorrência Geral:** Sem a barra `/`, qualquer ocorrência com esse nome será considerada, seja um arquivo (`teste.log`) ou uma pasta (`teste/`). |
+| **`node_modules/`** | **Diretório Restrito:** A barra `/` no final deixa explícito que se trata de uma pasta. Toda a árvore interna e subpastas desse diretório serão completamente ignoradas pelo Git. |
