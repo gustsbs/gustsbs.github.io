@@ -3,18 +3,18 @@
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
 ## 📑 Índice de Tópicos
-* [1. ⚙️ Configurações Iniciais](#config-inicial)
-* [2. 🔎 Monitoramento e Status](#git-status)
-* [3. 📥 Preparação e Snapshot](#git-add-commit)
-* [4. 📜 Histórico de Commits (git log)](#git-log)
-* [5. ⏪ Navegação e Desfazer Código](#git-checkout-reset)
-* [6. 🌿 Gerenciamento de Branches (git branch)](#git-branch)
-* [7. 🚀 Integração de Código: Merge vs Rebase](#git-merge-rebase)
+1. [⚙️ Configurações Iniciais](#config-inicial)
+2. [🔎 Monitoramento e Status](#git-status)
+3. [📥 Preparação e Snapshot](#git-add-commit)
+4. [📜 Histórico de Commits (git log)](#git-log)
+5. [⏪ Navegação e Desfazer Código](#git-checkout-reset)
+6. [🌿 Gerenciamento de Branches (git branch)](#git-branch)
+7. [🚀 Integração de Código: Merge vs Rebase](#git-merge-rebase)
 
 
 ---
 
-## 1. ⚙️ Configurações Iniciais (`git config`) {#git-status}
+## ⚙️ Configurações Iniciais (`git config`) {#git-status}
 Para parametrizar o ambiente global do Git no host de desenvolvimento.
 
 ### Para configurar a identificação global do usuário
@@ -38,7 +38,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-## 2. 🔎 Monitoramento e Status (git status) {#git-status}
+## 🔎 Monitoramento e Status (git status) {#git-status}
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
