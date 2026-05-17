@@ -16,8 +16,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 11. [Sincronização de Entrada (`git pull`)](#git-pull-buscar)
 ---
 
-## 1. <span id="config-inicial"> ⚙️ 
-Configurações Iniciais</span>
+## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais</span>
 
 Parametrizar o ambiente global do Git no host de desenvolvimento.
 
