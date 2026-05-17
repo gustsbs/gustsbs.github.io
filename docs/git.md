@@ -88,7 +88,7 @@ git commit -m "Aplica o commit e adiciona a informação sobre alterações"
 git commit -a -m "Aplica o commit e adiciona a informação sobre alterações"
 ```
 
-## <span id="git-log"> 4. 📜 Histórico de Commits (git log){#git-log}</span>
+## <span id="git-log"> 4. 📜 Histórico de Commits (git log)</span>
 
 Para inspecionar a linha do tempo e auditoria do repositório.
 
@@ -126,7 +126,7 @@ git reset --soft HEAD~1
 git reset --hard
 ```
 
-## <span id="git-branch"> 6. 🌿 Gerenciamento de Branches (git branch){#git-branch}</span>
+## <span id="git-branch"> 6. 🌿 Gerenciamento de Branches (git branch)</span>
 
 Isolamento e controle do fluxo de ramificações do repositório.
 
