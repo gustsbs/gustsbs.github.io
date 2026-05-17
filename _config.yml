@@ -1,5 +1,6 @@
 theme: jekyll-theme-minimal
 title: 🛠️ DevOps Docs | Gustavo SBS
+permalink: /:path/:basename.html
 include:
   - docs
 markdown: kramdown
