@@ -3,16 +3,18 @@
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
 ## 📑 Índice de Tópicos
-* [⚙️ Configurações Iniciais](#-configuracoes-iniciais-git-config)
-* [🔎 Monitoramento e Status](#-monitoramento-e-status-git-status)
-* [📥 Preparação e Snapshot](#-preparacao-e-snapshot-git-add--git-commit)
-* [⏪ Navegação e Desfazer Código](#-navegacao-e-desfazer-codigo-git-checkout--git-reset)
-* [🚀 Integração de Código: Merge vs Rebase](#-integracao-de-codigo-git-merge-vs-git-rebase)
+* [1. ⚙️ Configurações Iniciais](#config-inicial)
+* [2. 🔎 Monitoramento e Status](#git-status)
+* [3. 📥 Preparação e Snapshot](#git-add-commit)
+* [4. 📜 Histórico de Commits (git log)](#git-log)
+* [5. ⏪ Navegação e Desfazer Código](#git-checkout-reset)
+* [6. 🌿 Gerenciamento de Branches (git branch)](#git-branch)
+* [7. 🚀 Integração de Código: Merge vs Rebase](#git-merge-rebase)
 
 
 ---
 
-## ⚙️ Configurações Iniciais (`git config`)
+## 1. ⚙️ Configurações Iniciais (`git config`) {#git-status}
 Para parametrizar o ambiente global do Git no host de desenvolvimento.
 
 ### Para configurar a identificação global do usuário
@@ -36,7 +38,7 @@ git config --global init.defaultBranch teste
 git config --list
 ```
 
-## 🔎 Monitoramento e Status (git status)
+## 2. 🔎 Monitoramento e Status (git status) {#git-status}
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
@@ -53,7 +55,7 @@ O Git categoriza os arquivos locais em 4 estados principais:
 git status
 ```
 
-## 📥 Preparação e Snapshot (git add & git commit)
+## 3. 📥 Preparação e Snapshot (git add & git commit) {#git-add-commit}
 
 Fluxo para mover arquivos modificados para a área de preparação e salvar a versão.
 ### Para adicionar um arquivo específico à área de Staged
@@ -86,7 +88,7 @@ git commit -m "Aplica o commit e adiciona a informação sobre alterações"
 git commit -a -m "Aplica o commit e adiciona a informação sobre alterações"
 ```
 
-## 📜 Histórico de Commits (git log)
+## 4. 📜 Histórico de Commits (git log){#git-log}
 
 Para inspecionar a linha do tempo e auditoria do repositório.
 
@@ -100,7 +102,7 @@ git log
 git log -p
 ```
 
-## ⏪ Navegação e Desfazer Código (git checkout & git reset)
+## 5. ⏪ Navegação e Desfazer Código (git checkout & git reset) {#git-checkout-reset}
 
 Ações para restaurar pontos antigos do histórico ou reverter commits com erros.
 
@@ -124,7 +126,7 @@ git reset --soft HEAD~1
 git reset --hard
 ```
 
-## 🌿 Gerenciamento de Branches (git branch)
+## 6. 🌿 Gerenciamento de Branches (git branch){#git-branch}
 
 Isolamento e controle do fluxo de ramificações do repositório.
 
@@ -148,7 +150,7 @@ git checkout -b nomedabranch/nomeprojeto
 git branch -d feature/novoarquivo
 ```
 
-## 🚀 Integração de Código: Git Merge vs Git Rebase
+## 7. 🚀 Integração de Código: Git Merge vs Git Rebase {#git-merge-rebase}
 
 ### 1. git merge - Combina o histórico de dois ramos criando um novo commit de merge.
 ```bash
