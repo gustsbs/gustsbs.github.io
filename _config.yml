@@ -1,3 +1,5 @@
 theme: jekyll-theme-minimal
 title: 🛠️ DevOps Docs | Gustavo SBS
-include: [docs]
+include:
+  - docs
+markdown: kramdown
