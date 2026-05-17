@@ -11,8 +11,9 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 6. [Gerenciamento de Branches (git branch)](#git-branch)
 7. [Integração de Código: Merge vs Rebase](#git-merge-rebase)
 8. [Repositórios Remotos e Sincronização (git remote & git push](#git-push-remote)
-9. [Definição de Marcos e Versões] (#git-tag)
-10. [Desconsiderando Arquivos] (#desconsiderar-ignore)
+9. [Definição de Marcos e Versões](#git-tag)
+10. [Desconsiderando Arquivos](#desconsiderar-ignore)
+11. [Sincronização de Entrada (`git pull`)](#git-pull-buscar)
 ---
 
 ## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais (`git config`)</span>
@@ -31,10 +32,19 @@ git config --global credential.helper cache
 ```bash
 git config --global core.editor vim
 ```
-### Para definir o comportamento padrão do git pull (desativar rebase automático)
+### Merge Padrão (Default): Caso haja divergências entre o seu código e o servidor, o Git criará automaticamente um commit de merge para unir os dois históricos.
 ```bash
 git config pull.rebase false
 ```
+### Rebase por Padrão: Força o Git a tentar fazer um rebase sempre que você der git pull, evitando a criação de commits de merge automáticos e mantendo o histórico linear.
+```bash
+git config pull.rebase true
+```
+### Fast-Forward Only: Trava o comando de pull. O Git só atualizará sua máquina se não houver conflitos ou commits locais divergentes. Se houver, ele aborta a operação e pede para você resolver manualmente.
+```bash
+git config pull.ff only
+```
+
 ### Para alterar o nome padrão da branch de inicialização
 ```bash
 git config --global init.defaultBranch teste
@@ -283,3 +293,20 @@ Regras de sintaxe para impedir que arquivos locais específicos (como logs de se
 | **`!bin/*.log`** | **Negação/Exceção:** A exclamação inverte a regra. Significa que todos os arquivos `.log` dentro da pasta `bin` **devem ser rastreados**, agindo como uma exceção às travas globais. |
 | **`teste`** | **Ocorrência Geral:** Sem a barra `/`, qualquer ocorrência com esse nome será considerada, seja um arquivo (`teste.log`) ou uma pasta (`teste/`). |
 | **`node_modules/`** | **Diretório Restrito:** A barra `/` no final deixa explícito que se trata de uma pasta. Toda a árvore interna e subpastas desse diretório serão completamente ignoradas pelo Git. |
+
+## <span id="git-pull-buscar">📥 11. Sincronização de Entrada (`git pull`)</span>
+
+### Para atualizar a branch atual com o conteúdo do servidor remoto
+```bash
+git pull origin main
+
+### Para puxar as alterações forçando um histórico linear (Rebase)
+```bash
+git pull --rebase origin feature/nome-projeto
+```
+O que faz: Em vez de criar um commit de merge para juntar o código do servidor ao seu, ele desfaz temporariamente seus commits locais, aplica os commits do servidor e depois recoloca os seus no topo, mantendo a linha do tempo limpa.
+
+### Para baixar as atualizações de todas as branches remotas sem fundir o código (Fetch)
+```bash
+git fetch --all
+```
