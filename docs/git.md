@@ -2,6 +2,14 @@
 
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
+## 📑 Índice de Tópicos
+* [⚙️ Configurações Iniciais](#-configuracoes-iniciais-git-config)
+* [🔎 Monitoramento e Status](#-monitoramento-e-status-git-status)
+* [📥 Preparação e Snapshot](#-preparacao-e-snapshot-git-add--git-commit)
+* [⏪ Navegação e Desfazer Código](#-navegacao-e-desfazer-codigo-git-checkout--git-reset)
+* [🚀 Integração de Código: Merge vs Rebase](#-integracao-de-codigo-git-merge-vs-git-rebase)
+
+
 ---
 
 ## ⚙️ Configurações Iniciais (`git config`)
@@ -92,7 +100,7 @@ git log
 git log -p
 ```
 
-### ⏪ Navegação e Desfazer Código (git checkout & git reset)
+## ⏪ Navegação e Desfazer Código (git checkout & git reset)
 
 Ações para restaurar pontos antigos do histórico ou reverter commits com erros.
 
