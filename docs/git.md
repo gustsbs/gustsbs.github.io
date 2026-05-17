@@ -3,13 +3,13 @@
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
 ## 📑 Índice de Tópicos
-1. [⚙️ Configurações Iniciais](#config-inicial)
+1. [Configurações Iniciais](#config-inicial)
 2. [Monitoramento e Status](#monitoramento-e-status)
-3. [📥 Preparação e Snapshot](#git-add-commit)
-4. [📜 Histórico de Commits (git log)](#git-log)
-5. [⏪ Navegação e Desfazer Código](#git-checkout-reset)
-6. [🌿 Gerenciamento de Branches (git branch)](#git-branch)
-7. [🚀 Integração de Código: Merge vs Rebase](#git-merge-rebase)
+3. [Preparação e Snapshot](#git-add-commit)
+4. [Histórico de Commits (git log)](#git-log)
+5. [Navegação e Desfazer Código](#git-checkout-reset)
+6. [Gerenciamento de Branches (git branch)](#git-branch)
+7. [Integração de Código: Merge vs Rebase](#git-merge-rebase)
 
 
 ---
@@ -55,7 +55,7 @@ O Git categoriza os arquivos locais em 4 estados principais:
 git status
 ```
 
-## 3. 📥 Preparação e Snapshot (git add & git commit) {#git-add-commit}
+## <span id="git-add-commit"> 3. 📥 Preparação e Snapshot (git add & git commit)</span>
 
 Fluxo para mover arquivos modificados para a área de preparação e salvar a versão.
 ### Para adicionar um arquivo específico à área de Staged
@@ -88,7 +88,7 @@ git commit -m "Aplica o commit e adiciona a informação sobre alterações"
 git commit -a -m "Aplica o commit e adiciona a informação sobre alterações"
 ```
 
-## 4. 📜 Histórico de Commits (git log){#git-log}
+## <span id="git-log"> 4. 📜 Histórico de Commits (git log){#git-log}</span>
 
 Para inspecionar a linha do tempo e auditoria do repositório.
 
@@ -102,7 +102,7 @@ git log
 git log -p
 ```
 
-## 5. ⏪ Navegação e Desfazer Código (git checkout & git reset) {#git-checkout-reset}
+## <span id="git-checkout-reset"> 5. ⏪ Navegação e Desfazer Código (git checkout & git reset)</span>
 
 Ações para restaurar pontos antigos do histórico ou reverter commits com erros.
 
@@ -126,7 +126,7 @@ git reset --soft HEAD~1
 git reset --hard
 ```
 
-## 6. 🌿 Gerenciamento de Branches (git branch){#git-branch}
+## <span id="git-branch"> 6. 🌿 Gerenciamento de Branches (git branch){#git-branch}</span>
 
 Isolamento e controle do fluxo de ramificações do repositório.
 
@@ -150,7 +150,7 @@ git checkout -b nomedabranch/nomeprojeto
 git branch -d feature/novoarquivo
 ```
 
-## 7. 🚀 Integração de Código: Git Merge vs Git Rebase {#git-merge-rebase}
+## <span id="git-merge-rebase"> 7. 🚀 Integração de Código: Git Merge vs Git Rebase</span>
 
 ### 1. git merge - Combina o histórico de dois ramos criando um novo commit de merge.
 ```bash
