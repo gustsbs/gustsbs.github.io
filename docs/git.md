@@ -76,13 +76,13 @@ git config --list
 
 O Git categoriza os arquivos locais em 4 estados principais:
 
-**Untracked**: Arquivo novo que ainda não está a ser rastreado pelo Git.
+    **Untracked**: Arquivo novo que ainda não está a ser rastreado pelo Git.
 
-**Unmodified**: Arquivo já rastreado que não sofreu alterações.
+    **Unmodified**: Arquivo já rastreado que não sofreu alterações.
 
-**Modified**: Arquivo rastreado modificado na pasta, mas fora da área de commit.
+    **Modified**: Arquivo rastreado modificado na pasta, mas fora da área de commit.
 
-**Staged**: Arquivo pronto e selecionado para ser incluído no próximo commit.
+    **Staged**: Arquivo pronto e selecionado para ser incluído no próximo commit.
 
 ### Para checar o status de rastreamento dos arquivos
 ```bash
