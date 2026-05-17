@@ -10,24 +10,42 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 5. [Navegação e Desfazer Código](#git-checkout-reset)
 6. [Gerenciamento de Branches (git branch)](#git-branch)
 7. [Integração de Código: Merge vs Rebase](#git-merge-rebase)
-8. [Repositórios Remotos e Sincronização (git remote & git push](#git-push-remote)
+8. [Repositórios Remotos e Sincronização (git remote & git push)](#git-push-remote)
 9. [Definição de Marcos e Versões](#git-tag)
 10. [Desconsiderando Arquivos](#desconsiderar-ignore)
 11. [Sincronização de Entrada (`git pull`)](#git-pull-buscar)
 ---
 
-## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais (`git config`)</span>
-Para parametrizar o ambiente global do Git no host de desenvolvimento.
+## 1. <span id="config-inicial"> ⚙️ 
+Configurações Iniciais</span>
+
+Parametrizar o ambiente global do Git no host de desenvolvimento.
+
+### Inicializa um novo repositório Git local na pasta atual, forçando a criação da branch principal com o nome padrão moderno main (evitando o termo legado master).
+```bash
+git init --initial-branch=main
+```
+### Registra e mapeia um novo servidor remoto (neste caso, a sua instância do GitLab) sob o codinome padrão origin, criando o canal de comunicação para futuros envios de código (push).
+```bash
+git remote add origin https://gitlab.gustbrito.br/sistemas/glpi.git
+```
+
+### Atualiza ou sobrescreve a URL do repositório remoto origin já existente.
+```bash
+git remote set-url origin https://gitlab.gustbrito.br/sistemas/glpi.git
+```
+
+### Para salvar as credenciais de acesso no cache temporário do host
+```bash
+git config --global credential.helper cache
+```
 
 ### Para configurar a identificação global do usuário
 ```bash
 git config --global user.name "Gustavo de Brito dos Santos"
 git config --global user.email "gustbrito@email.com.br"
 ```
-### Para salvar as credenciais de acesso no cache temporário do host
-```bash
-git config --global credential.helper cache
-```
+
 ### Para definir o Vim como editor de texto padrão das mensagens
 ```bash
 git config --global core.editor vim
@@ -299,7 +317,7 @@ Regras de sintaxe para impedir que arquivos locais específicos (como logs de se
 ### Para atualizar a branch atual com o conteúdo do servidor remoto
 ```bash
 git pull origin main
-
+```
 ### Para puxar as alterações forçando um histórico linear (Rebase)
 ```bash
 git pull --rebase origin feature/nome-projeto
