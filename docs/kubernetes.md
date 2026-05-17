@@ -1,9 +1,4 @@
----
-layout: default
-title: Docs | Kubernetes
----
-
-# ☸️ Documentação Kubernetes
+# ☸️ Kubernetes
 
 ### Comandos de Verificação de Pods
 Para checar os pods em execução
