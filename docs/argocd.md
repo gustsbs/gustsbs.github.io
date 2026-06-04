@@ -1,5 +1,4 @@
-# Comandos ARGOCD
-
+# 🐙Guia de Comandos ARGOCD
 
 ## 📑 Índice
 
@@ -8,6 +7,8 @@
 
 
 ## 1. <span id=#instalacao> 📦 Instalação do ARGOCD em cluster Kubernetes</span>
+Referência: https://argo-cd.readthedocs.io/en/stable/cli_installation/
+Link da documentação oficial: https://argo-cd.readthedocs.io/en/stable/getting_started/
 
 ### baixar o manifesto
 ```bash
@@ -57,3 +58,4 @@ argocd account update-password --account admin --current-password <SENHA_ANTIGA>
 ```bash
 argocd cluster add contexto-teste --name kubernetes-teste --grpc-web
 ```
+
