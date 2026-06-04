@@ -2,9 +2,12 @@
 
 Este guia centraliza os principais comandos do Docker utilizados no dia a dia para gerenciamento de containers, imagens, volumes e builds.
 
+## 📑 Índice
+
 1. [Gerenciamento de Containers](#gerenciamento-de-containers)
 2. [Gerenciamento e Inspeção de Imagens](gerencimento-e-expansao-de-imagens)
 3. [Build de Imagens (Dockerfile)](#build-de-imagens)
+4. [Persistência de Dados](#persistencia-de-dados)
 
 
 
@@ -15,20 +18,24 @@ Exibe uma lista de todos os containers no host, incluindo os que estão em execu
 ```bash
 docker container ls -a
 ```
+
 ### Iniciar um container que já foi criado anteriormente mas encontra-se parado.
 ```bash
 docker start mysql
 ```
+
 ### Parar um container em execução
 Envia um sinal amigável para interromper a execução de um container de forma limpa.
 ```bash
 docker stop mysql
 ```
+
 ### Remover um container
 Exclui permanentemente um container parado do sistema.
 ```bash
 docker rm mysql
 ```
+
 ### Executar comandos em um container ativo
 Abre um terminal interativo dentro de um container que já está rodando.
 Exemplo: Executando o shell bash dentro do container nginx
@@ -44,14 +51,17 @@ docker container rm -f $(docker container ls -qa)
 
 ## 2. <span id='gerenciamento-e-inspecao-de-imagens'> 🖼️ Gerenciamento e Inspeção de Imagens</span>
 
+
 ### Exibe todas as imagens Docker baixadas ou buildadas que estão disponíveis na máquina.
 ```bash
 docker image ls
 ```
+
 ### Retorna um JSON detalhado com as especificações técnicas da imagem (camadas, variáveis, portas expostas, etc.).
 ```bash
 docker image inspect nomedaimagem
 ```
+
 ### Mostra as camadas estruturais da imagem e os comandos que foram executados para criá-la.
 ```bash
 docker image history nomedaimagem
@@ -61,14 +71,17 @@ docker image history nomedaimagem
 ```bash
 docker commit id_da_imagem nome_da_imagem
 ```
+
 ### Similar ao comando acima, mas especificando tag e versão:
 ```bash
 docker commit c3f279d17e0a novaimagem/testimage:version3
 ```
+
 ### Salva uma imagem local em um arquivo compactado (tarball), facilitando o transporte manual para outros servidores.
 ```bash
 docker image save nomedaimagem
 ```
+
 ### Remove do host todas as imagens que não estão associadas a nenhum container ativo ou parado, liberando espaço em disco.
 ```bash
 docker image prune
@@ -80,6 +93,7 @@ docker image prune
 ```bash
 docker build -t nome_da_imagem -f Dockerfile .
 ```
+
 ### Força o Docker a reexecutar todas as etapas do Dockerfile do zero, sem reaproveitar o cache de builds anteriores. 
 ```bash
 docker build -t nome_da_imagem . --no-cache
@@ -89,8 +103,20 @@ docker build -t nome_da_imagem . --no-cache
 ```bash
 docker build -t nome_da_imagem --build-arg VAR_TEXTO=teste .
 ```
+
 ### Permite injetar variáveis em tempo de build (--build-arg) que serão consumidas pelas instruções ARG dentro do seu Dockerfile.
+```bash
 docker build -t nome_da_imagem --build-arg VAR_TEXTO=teste .
+```
 
+## 4. <span id="persistencia-de-dados"> 💾 Persistência de Dados (Volumes & Mounts)</span>
 
+### Cria um volume gerenciado pelo Docker para persistência de dados isolada do ciclo de vida do container.
+```bash
+docker volume create nomedovolume
+```
 
+### Exclui permanentemente um volume nomeado do host (só funciona se o volume não estiver em uso).
+```bash 
+docker volume rm nomedovolume
+```

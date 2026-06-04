@@ -2,7 +2,7 @@
 
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
-## 📑 Índice de Tópicos
+## 📑 Índice
 1. [Configurações Iniciais](#config-inicial)
 2. [Monitoramento e Status](#monitoramento-e-status)
 3. [Preparação e Snapshot](#git-add-commit)
