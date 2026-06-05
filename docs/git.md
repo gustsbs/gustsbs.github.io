@@ -14,6 +14,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 9. [Definição de Marcos e Versões](#git-tag)
 10. [Desconsiderando Arquivos](#desconsiderar-ignore)
 11. [Sincronização de Entrada (`git pull`)](#git-pull-buscar)
+12. [Recuperação](#rollback)
 ---
 
 ## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais</span>
@@ -326,4 +327,17 @@ O que faz: Em vez de criar um commit de merge para juntar o código do servidor 
 ### Para baixar as atualizações de todas as branches remotas sem fundir o código (Fetch)
 ```bash
 git fetch --all
+```
+
+## 12. <span id="rollback">🪽 Recuperação</span>
+
+### Faz o reset do repositório para o commit desejado
+```bash
+git reset --hard 47ce0f9d9c04a5f8b72be653b908c781d450561f
+```
+Como você já tinha dado push de coisas erradas, 
+se quiser forçar o servidor (GitLab) a ficar igual ao seu local,
+use o comando abaixo (CUIDADO: isso apagará o histórico remoto posterior):
+```bash
+git push origin <nome-da-sua-branch> --force
 ```
