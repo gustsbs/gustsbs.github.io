@@ -20,8 +20,27 @@ Para checar os pods em execução
 kubectl get pods -n namespace
 ```
 
+### Checando os contextos
+```bash
+kubectl config get-contexts
+```
+
+### Selecionando um contexto
+```bash
+kubectl config use-context contexto-producao
+```
+
+### Chegando os nós
+```bash
+kubectl get nodes
+```
+
+### Criando um namespace
+```bash
+kubectl create namespace argocd
+```
+
 ### Analisa as 30 últimas linhas de um pod, acompanhando em tempo real
 ```bash
 sudo kubectl logs -f --tail=30 -n nomedonamespace poddaaplicacao-59bf74f8b4-pfrxh 
 ```
-

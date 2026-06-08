@@ -2,7 +2,7 @@
 
 Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branches e estratégias de integração de código.
 
-## 📑 Índice de Tópicos
+## 📑 Índice
 1. [Configurações Iniciais](#config-inicial)
 2. [Monitoramento e Status](#monitoramento-e-status)
 3. [Preparação e Snapshot](#git-add-commit)
@@ -14,6 +14,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 9. [Definição de Marcos e Versões](#git-tag)
 10. [Desconsiderando Arquivos](#desconsiderar-ignore)
 11. [Sincronização de Entrada (`git pull`)](#git-pull-buscar)
+12. [Recuperação](#rollback)
 ---
 
 ## 1. <span id="config-inicial"> ⚙️ Configurações Iniciais</span>
@@ -225,9 +226,14 @@ git branch -d feature/novoarquivo
 ## <span id="git-merge-rebase"> 7. 🚀 Integração de Código: Git Merge vs Git Rebase</span>
 
 ### 1. git merge - Combina o histórico de dois ramos criando um novo commit de merge.
+
 ```bash
+git fetch origin
 git merge nomedabranch
+ou
+git merge origin/main
 ```
+
 O que faz: Cria um commit de junção na branch atual, interligando os dois históricos de forma paralela (não-linear).
 
 Prós: Preserva o histórico real completo de cada ramificação, sendo ideal para auditorias em projetos de equipas grandes.
@@ -349,4 +355,18 @@ O passo anterior reseta os arquivos que o Git já conhece. Se você criou arquiv
 ⚠️ **Reforçando, o comando abaixo excluirá os arquivos locais e pastas que não estão no repositório remoto.**
 ```bash
 git clean -fd
+```
+
+## 12. <span id="rollback">🪽 Recuperação</span>
+
+### Faz o reset do repositório para o commit desejado
+```bash
+git reset --hard 47ce0f9d9c04a5f8b72be653b908c781d450561f
+```
+
+Como você já tinha dado push de coisas erradas, 
+se quiser forçar o servidor (GitLab) a ficar igual ao seu local,
+use o comando abaixo (CUIDADO: isso apagará o histórico remoto posterior):
+```bash
+git push origin <nome-da-sua-branch> --force
 ```
