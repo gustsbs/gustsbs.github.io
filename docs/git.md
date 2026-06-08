@@ -327,3 +327,26 @@ O que faz: Em vez de criar um commit de merge para juntar o código do servidor 
 ```bash
 git fetch --all
 ```
+
+### Excluir todas alterações locais, fidelizar ao que está no servidor git remoto
+1 - Busque as referências mais atuais do servidor:
+```bash
+git fetch origin
+```
+
+2 - Confirmar a branch local, neste pretendemos fidelizar a main do servidor
+```bash
+git status
+```
+
+3 - Forçe o reset do seu branch local para coincidir com o remoto:
+```bash
+git reset --hard origin/main
+```
+
+4 - Remover arquivos e diretório não rastreados
+O passo anterior reseta os arquivos que o Git já conhece. Se você criou arquivos novos (como logs, backups ou scripts de teste) que não estão no GitLab, eles permanecerão lá. Para removê-los e limpar tudo:
+⚠️ **Reforçando, o comando abaixo excluirá os arquivos locais e pastas que não estão no repositório remoto.**
+```bash
+git clean -fd
+```
