@@ -230,9 +230,14 @@ git branch -d feature/novoarquivo
 ## <span id="git-merge-rebase"> 7. 🚀 Integração de Código: Git Merge vs Git Rebase</span>
 
 ### 1. git merge - Combina o histórico de dois ramos criando um novo commit de merge.
+
 ```bash
+git fetch origin
 git merge nomedabranch
+ou
+git merge origin/main
 ```
+
 O que faz: Cria um commit de junção na branch atual, interligando os dois históricos de forma paralela (não-linear).
 
 Prós: Preserva o histórico real completo de cada ramificação, sendo ideal para auditorias em projetos de equipas grandes.
@@ -333,12 +338,36 @@ O que faz: Em vez de criar um commit de merge para juntar o código do servidor 
 git fetch --all
 ```
 
+### Excluir todas alterações locais, fidelizar ao que está no servidor git remoto
+1 - Busque as referências mais atuais do servidor:
+```bash
+git fetch origin
+```
+
+2 - Confirmar a branch local, neste pretendemos fidelizar a main do servidor
+```bash
+git status
+```
+
+3 - Forçe o reset do seu branch local para coincidir com o remoto:
+```bash
+git reset --hard origin/main
+```
+
+4 - Remover arquivos e diretório não rastreados
+O passo anterior reseta os arquivos que o Git já conhece. Se você criou arquivos novos (como logs, backups ou scripts de teste) que não estão no GitLab, eles permanecerão lá. Para removê-los e limpar tudo:
+⚠️ **Reforçando, o comando abaixo excluirá os arquivos locais e pastas que não estão no repositório remoto.**
+```bash
+git clean -fd
+```
+
 ## 12. <span id="rollback">🪽 Recuperação</span>
 
 ### Faz o reset do repositório para o commit desejado
 ```bash
 git reset --hard 47ce0f9d9c04a5f8b72be653b908c781d450561f
 ```
+
 Como você já tinha dado push de coisas erradas, 
 se quiser forçar o servidor (GitLab) a ficar igual ao seu local,
 use o comando abaixo (CUIDADO: isso apagará o histórico remoto posterior):
