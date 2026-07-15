@@ -207,6 +207,10 @@ Isolamento e controle do fluxo de ramificações do repositório.
 ```bash
 git branch
 ```
+### Lista as branchs locais e remotas
+```bash
+git branch -a
+```
 
 ### Para criar uma nova branch a partir do ponto atual
 ```bash

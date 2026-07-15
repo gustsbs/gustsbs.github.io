@@ -30,7 +30,7 @@ kubectl config get-contexts
 kubectl config use-context contexto-producao
 ```
 
-### Chegando os nós
+### Checando os nós
 ```bash
 kubectl get nodes
 ```
