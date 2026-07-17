@@ -1,6 +1,8 @@
 # 🌐 Guia de Comandos Proxmox
 
-Anotações de administração de cluster, máquinas virtuais, containers LXC, armazenamento, Ceph, rede e rotinas de manutenção de um ambiente Proxmox VE.
+Anotações de administração de cluster, máquinas virtuais, containers LXC, armazenamento, rede e rotinas de manutenção de um ambiente Proxmox VE.
+
+> 📚 Comandos específicos de backend de armazenamento ficam em guias dedicados: [ceph.md](ceph.md) e [zfs.md](zfs.md).
 
 ## 📑 Índice
 
@@ -8,13 +10,12 @@ Anotações de administração de cluster, máquinas virtuais, containers LXC, a
 2. [Alta Disponibilidade (HA) e Modo de Manutenção](#ha-manutencao)
 3. [Gerenciamento de VMs (qm)](#gerenciamento-vms)
 4. [Gerenciamento de Containers LXC (pct)](#gerenciamento-lxc)
-5. [Armazenamento (Storage & ZFS)](#armazenamento)
-6. [Ceph](#ceph)
-7. [Backup e Restauração](#backup-restauracao)
-8. [Rede (Networking)](#rede)
-9. [Monitoramento e Logs](#monitoramento-logs)
-10. [Usuários e Permissões (pveum)](#usuarios-permissoes)
-11. [Boas Práticas](#boas-praticas)
+5. [Armazenamento (pvesm)](#armazenamento)
+6. [Backup e Restauração](#backup-restauracao)
+7. [Rede (Networking)](#rede)
+8. [Monitoramento e Logs](#monitoramento-logs)
+9. [Usuários e Permissões (pveum)](#usuarios-permissoes)
+10. [Boas Práticas](#boas-praticas)
 ---
 
 ## 1. <span id="cluster-nos">🖥️ Gerenciamento de Nós e Cluster</span>
@@ -57,11 +58,7 @@ O Proxmox evacua automaticamente as VMs/CTs sob regras de Alta Disponibilidade (
 ha-manager crm-command node-maintenance enable pve1
 ```
 
-### 🔹 Definir a flag `noout` no Ceph antes da evacuação
-Impede que o Ceph tente re-replicar os OSDs do nó que sairá do ar, evitando sobrecarga desnecessária na rede durante uma manutenção programada.
-```bash
-ceph osd set noout
-```
+> ℹ️ Se o cluster usa **Ceph** como storage compartilhado, também aplique as flags de manutenção do Ceph (`noout`, `noscrub`, `nodeep-scrub`) antes de evacuar o nó — ver [ceph.md#manutencao-flags](ceph.md#manutencao-flags).
 
 ### 🔹 Acompanhar a migração e o estado do HA em tempo real
 ```bash
@@ -80,11 +77,7 @@ Reintegra o nó ao HA do cluster, permitindo que volte a receber cargas de traba
 ha-manager crm-command node-maintenance disable pve1
 ```
 
-### 🔹 Remover a flag `noout` do Ceph
-Libera o storage para voltar a sincronizar normalmente os OSDs do nó reintegrado.
-```bash
-ceph osd unset noout
-```
+> ℹ️ Lembre-se de reverter também as flags do Ceph (`unset noout`, `unset noscrub`, `unset nodeep-scrub`) — ver [ceph.md#manutencao-flags](ceph.md#manutencao-flags).
 
 ## 3. <span id="gerenciamento-vms">🖧 Gerenciamento de VMs (qm)</span>
 
@@ -205,7 +198,9 @@ pct rollback 200 antes-do-deploy
 pct destroy 200
 ```
 
-## 5. <span id="armazenamento">💾 Armazenamento (Storage & ZFS)</span>
+## 5. <span id="armazenamento">💾 Armazenamento (pvesm)</span>
+
+`pvesm` é a camada de abstração do Proxmox sobre os diferentes backends de armazenamento (LVM, diretórios locais, NFS, ZFS, Ceph/RBD, etc.). Para comandos específicos de cada backend, veja [zfs.md](zfs.md) e [ceph.md](ceph.md).
 
 ### 🔹 Ver o status de todos os storages configurados
 ```bash
@@ -223,67 +218,7 @@ pvesm list local-lvm
 pvesm add dir backup-local --path /mnt/backups --content backup
 ```
 
-### 🔹 Ver o status dos pools ZFS
-Exibe o estado de saúde (`ONLINE`, `DEGRADED`, `FAULTED`) de cada pool e disco associado — essencial para detectar falhas de disco precocemente.
-```bash
-zpool status
-```
-
-### 🔹 Listar pools e datasets ZFS
-```bash
-zpool list
-zfs list
-```
-
-### 🔹 Criar um snapshot ZFS
-```bash
-zfs snapshot rpool/data@antes-da-migracao
-```
-
-### 🔹 Reverter para um snapshot ZFS
-⚠️ **Descarta todas as alterações feitas após o snapshot.**
-```bash
-zfs rollback rpool/data@antes-da-migracao
-```
-
-## 6. <span id="ceph">🐙 Ceph</span>
-
-### 🔹 Ver o status geral do cluster Ceph
-```bash
-ceph -s
-```
-
-### 🔹 Ver detalhes de problemas de saúde
-Quando `ceph -s` reporta `HEALTH_WARN` ou `HEALTH_ERR`, este comando detalha exatamente o que está errado.
-```bash
-ceph health detail
-```
-
-### 🔹 Ver a topologia dos OSDs
-Mostra a árvore de hosts, OSDs e seus pesos/status (`up`/`down`, `in`/`out`) — útil para identificar rapidamente qual disco/nó está com problema.
-```bash
-ceph osd tree
-```
-
-### 🔹 Ver o uso de espaço do cluster Ceph
-```bash
-ceph df
-```
-
-### 🔹 Impedir o rebalanceamento automático (manutenção programada)
-Além de `noout` (seção 2), essas flags evitam scrubbing durante a janela de manutenção, reduzindo carga extra no cluster.
-```bash
-ceph osd set noscrub
-ceph osd set nodeep-scrub
-```
-
-### 🔹 Reverter as flags de manutenção
-```bash
-ceph osd unset noscrub
-ceph osd unset nodeep-scrub
-```
-
-## 7. <span id="backup-restauracao">🗄️ Backup e Restauração</span>
+## 6. <span id="backup-restauracao">🗄️ Backup e Restauração</span>
 
 ### 🔹 Fazer backup de uma VM ou container
 `--mode snapshot` realiza o backup sem desligar a VM (usando snapshot do storage); `--compress zstd` reduz o tamanho do arquivo final.
@@ -307,7 +242,7 @@ qmrestore /mnt/backups/vzdump-qemu-100.vma.zst 100 --storage local-lvm
 pct restore 200 /mnt/backups/vzdump-lxc-200.tar.zst --storage local-lvm
 ```
 
-## 8. <span id="rede">🌐 Rede (Networking)</span>
+## 7. <span id="rede">🌐 Rede (Networking)</span>
 
 ### 🔹 Editar a configuração de rede do nó
 Bridges, bonds e VLANs são definidos neste arquivo, no formato do `ifupdown`.
@@ -332,7 +267,7 @@ brctl show
 pvesh get /nodes/pve1/network
 ```
 
-## 9. <span id="monitoramento-logs">📊 Monitoramento e Logs</span>
+## 8. <span id="monitoramento-logs">📊 Monitoramento e Logs</span>
 
 ### 🔹 Rodar um benchmark rápido do nó
 Mede desempenho de CPU, disco e rede — útil como referência ao investigar lentidão ou comparar nós do cluster.
@@ -357,7 +292,7 @@ pvesh get /cluster/tasks
 pvenode task log UPID:pve1:00001234:...
 ```
 
-## 10. <span id="usuarios-permissoes">🔐 Usuários e Permissões (pveum)</span>
+## 9. <span id="usuarios-permissoes">🔐 Usuários e Permissões (pveum)</span>
 
 ### 🔹 Listar usuários
 ```bash
@@ -386,7 +321,7 @@ Mostra os domínios de autenticação configurados além do padrão `pve` — re
 pveum realm list
 ```
 
-## 11. <span id="boas-praticas">🧭 Boas Práticas</span>
+## 10. <span id="boas-praticas">🧭 Boas Práticas</span>
 
 ### 🔹 Sempre tire um snapshot antes de mudanças arriscadas
 Antes de atualizações de sistema operacional, migrações ou alterações estruturais em uma VM/CT, crie um snapshot (seções 3 e 4) — o rollback é ordens de magnitude mais rápido que uma restauração completa de backup.
@@ -397,5 +332,5 @@ Pular a etapa `ha-manager crm-command node-maintenance enable` (seção 2) pode 
 ### 🔹 Monitore o quórum antes de intervenções em massa
 Rodar `pvecm status` antes de desligar múltiplos nós evita perder quórum do cluster acidentalmente — sem quórum, o Proxmox bloqueia operações de gerenciamento por segurança.
 
-### 🔹 Trate flags de manutenção do Ceph como um par
-Toda vez que você `set noout`/`set noscrub` (seção 6), programe-se para desfazer (`unset`) assim que a manutenção terminar — flags esquecidas ativas mascaram problemas reais de saúde do cluster.
+### 🔹 Coordene a manutenção com o backend de armazenamento
+Ao evacuar um nó (seção 2), verifique também o estado do storage compartilhado — flags de manutenção esquecidas no Ceph ou um scrub em andamento no ZFS podem mascarar problemas reais. Veja as boas práticas específicas em [ceph.md](ceph.md#boas-praticas) e [zfs.md](zfs.md#boas-praticas).
