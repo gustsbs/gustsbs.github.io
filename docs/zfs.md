@@ -11,7 +11,8 @@ Anotações de administração de pools, datasets, snapshots, clones e replicaç
 5. [Envio e Recepção (send/receive)](#send-receive)
 6. [Propriedades e Ajustes](#propriedades)
 7. [Monitoramento e Manutenção](#monitoramento-manutencao)
-8. [Boas Práticas](#boas-praticas)
+8. [Expandindo um Pool Após Crescer o Disco Virtual (Caso Real)](#expandir-pool-disco-virtual)
+9. [Boas Práticas](#boas-praticas)
 ---
 
 ## 1. <span id="gerenciamento-pools">🧱 Gerenciamento de Pools</span>
@@ -223,7 +224,47 @@ Libera para o firmware do disco os blocos não utilizados pelo ZFS, mantendo a p
 zpool trim nome-pool
 ```
 
-## 8. <span id="boas-praticas">🧭 Boas Práticas</span>
+## 8. <span id="expandir-pool-disco-virtual">📈 Expandindo um Pool Após Crescer o Disco Virtual (Caso Real)</span>
+
+Cenário: um pool de disco único (`geonode`, sobre `/dev/sdb`) tinha seu `/opt` sem espaço. O disco virtual foi expandido no hypervisor (VxRail) — mas o pool não cresceu sozinho mesmo com `autoexpand=on`, porque ele estava desimportado no momento em que o disco foi redimensionado. Passo a passo do diagnóstico e da correção.
+
+### 🔹 Confirmar que o kernel já enxerga o disco maior
+Se o disco foi expandido no hypervisor com a VM ligada, força o kernel a reler o tamanho do dispositivo sem precisar reiniciar.
+```bash
+echo 1 > /sys/class/block/sdb/device/rescan
+lsblk
+```
+
+### 🔹 Corrigir a tabela GPT antes de mexer em qualquer coisa
+Quando o disco cresce "por baixo" (no hypervisor), a cópia de backup da GPT continua referenciando o fim do disco *antigo*. Ferramentas como `growpart`/`zpool` podem não enxergar o espaço novo até isso ser corrigido.
+```bash
+parted /dev/sdb print free
+```
+Ao ser perguntado `Arrumar/Fix/Ignorar/Ignore?`, responder **Fix** — realoca a cópia de backup da GPT para o fim real do disco, sem tocar nos dados das partições existentes.
+
+### 🔹 Confirmar o pool e qual device ele realmente usa
+`zpool import` (sem argumentos) lista pools importáveis sem importar nada — é seguro rodar mesmo sem saber o estado atual. Se a GPT estiver inconsistente, ele pode não encontrar nada mesmo havendo um pool real ali (ver nota em Boas Práticas). `zpool status -v` mostra o device exato usado pelo vdev — pode aparecer como o disco inteiro (`sdb`) mesmo que o ZFS tenha particionado ele por baixo (`sdb1` + `sdb9` reservada).
+```bash
+zpool import
+zpool status -v nome-pool
+```
+
+### 🔹 Checar e forçar o autoexpand
+`autoexpand=on` só reage a um device que cresce **enquanto o pool está importado**. Se o pool foi reimportado depois do disco já ter crescido, é preciso forçar o reconhecimento manualmente com `zpool online -e`, usando exatamente o nome do device que apareceu no `zpool status` (não necessariamente a partição).
+```bash
+zpool get autoexpand nome-pool
+zpool set autoexpand=on nome-pool
+zpool online -e nome-pool sdb
+```
+
+### 🔹 Confirmar o crescimento
+```bash
+zpool list nome-pool
+df -h /caminho-do-dataset
+zfs list -o name,used,avail,mountpoint nome-pool
+```
+
+## 9. <span id="boas-praticas">🧭 Boas Práticas</span>
 
 ### 🔹 Nunca use RAID de hardware sob o ZFS
 O ZFS precisa de acesso direto aos discos para gerenciar redundância e integridade — controladoras RAID de hardware escondem o estado real dos discos e quebram a autocorreção do ZFS. Configure a controladora em modo HBA/passthrough.
@@ -236,3 +277,12 @@ Pools ZFS acima de ~80–90% de ocupação sofrem degradação de performance pe
 
 ### 🔹 Prefira `send`/`receive` a cópias de arquivo para backup
 Além de mais rápido (transmite só blocos alterados em modo incremental), preserva metadados e é a forma nativa de replicar dados entre hosts ZFS com consistência de snapshot.
+
+### 🔹 `autoexpand=on` não é retroativo
+Ele só expande o vdev em reação a um evento de crescimento do device *enquanto o pool está importado*. Se o disco cresceu com o pool exportado (ou antes de o pool ficar visível por algum outro motivo, como uma GPT inconsistente), o `autoexpand` sozinho não resolve — force com `zpool online -e nome-pool <device>` depois de confirmar o import.
+
+### 🔹 ZFS não usa `/etc/fstab`
+Datasets montam sozinhos pela propriedade `mountpoint`, via `zfs-mount.service`/`zfs-import.target` no boot. Não estranhar a ausência de uma entrada de `/opt` (ou qualquer outro ponto de montagem ZFS) no `fstab` — isso é o comportamento normal, não sinal de que alguém desmontou manualmente ou trocou o filesystem.
+
+### 🔹 GPT inconsistente pode esconder um pool do `zpool import`
+Se `blkid` mostra `TYPE="zfs_member"` numa partição mas `zpool import` não acha nenhum pool, desconfie da tabela de partições antes de considerar o disco "livre" para reformatar — rode `parted <disco> print free`, corrija (`Fix`) se necessário, e só então reavalie. Formatar um disco por achar que o pool "não existe mais" sem checar isso primeiro pode destruir dados que só pareciam inacessíveis.
