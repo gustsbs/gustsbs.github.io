@@ -6,6 +6,18 @@
     <title>Central de Documentação | Wiki</title>
     <link rel="stylesheet" href="../style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* Layout mais largo só para a grade de módulos — em telas de monitor,
+           o .container padrão (800px) deixava só 2 colunas sobrando espaço.
+           No celular o auto-fit do grid já cai para 1 coluna normalmente,
+           então isso não muda nada lá. */
+        .container-docs {
+            max-width: 1200px;
+        }
+        .container-docs .grid-projetos {
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+    </style>
 </head>
 <body>
 
@@ -17,7 +29,7 @@
         </nav>
     </header>
 
-    <main class="container">
+    <main class="container container-docs">
         <section id="modulos">
             <h2>Módulos Disponíveis</h2>
             <div class="grid-projetos" style="margin-top: 1.5rem;">
