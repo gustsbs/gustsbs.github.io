@@ -17,6 +17,7 @@ Anotações de instalação, configuração de contexto, gerenciamento de worklo
 11. [RBAC e Segurança](#rbac-seguranca)
 12. [Helm (Gerenciador de Pacotes)](#helm)
 13. [Sealed Secrets (Bitnami)](#sealed-secrets)
+14. [Referências](#referencias)
 ---
 
 ## 1. <span id="instalacao-configuracao">⚙️ Instalação e Configuração do kubectl</span>
@@ -593,3 +594,10 @@ kubectl delete pod -n kube-system -l name=sealed-secrets-controller
 
 ### 🔹 Quando é preciso reselar um segredo
 Não é necessário refazer o processo a cada atualização de imagem/versão da aplicação — apenas quando o **valor** do segredo muda, quando o **nome** ou **namespace** de destino mudam, ou quando o controller/cluster é reconstruído do zero (sem a chave privada restaurada do backup acima).
+
+## 14. <span id="referencias">📚 Referências</span>
+
+- [Kubernetes Documentation — Documentação oficial](https://kubernetes.io/docs/home/)
+- [kubectl Quick Reference](https://kubernetes.io/docs/reference/kubectl/quick-reference/)
+- [Helm Docs — Documentação oficial](https://helm.sh/docs/)
+- [Sealed Secrets (Bitnami Labs) — repositório e releases](https://github.com/bitnami-labs/sealed-secrets)

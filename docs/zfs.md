@@ -13,6 +13,7 @@ Anotações de administração de pools, datasets, snapshots, clones e replicaç
 7. [Monitoramento e Manutenção](#monitoramento-manutencao)
 8. [Expandindo um Pool Após Crescer o Disco Virtual (Caso Real)](#expandir-pool-disco-virtual)
 9. [Boas Práticas](#boas-praticas)
+10. [Referências](#referencias)
 ---
 
 ## 1. <span id="gerenciamento-pools">🧱 Gerenciamento de Pools</span>
@@ -286,3 +287,7 @@ Datasets montam sozinhos pela propriedade `mountpoint`, via `zfs-mount.service`/
 
 ### 🔹 GPT inconsistente pode esconder um pool do `zpool import`
 Se `blkid` mostra `TYPE="zfs_member"` numa partição mas `zpool import` não acha nenhum pool, desconfie da tabela de partições antes de considerar o disco "livre" para reformatar — rode `parted <disco> print free`, corrija (`Fix`) se necessário, e só então reavalie. Formatar um disco por achar que o pool "não existe mais" sem checar isso primeiro pode destruir dados que só pareciam inacessíveis.
+
+## 10. <span id="referencias">📚 Referências</span>
+
+- [OpenZFS Documentation — Documentação oficial](https://openzfs.github.io/openzfs-docs/)

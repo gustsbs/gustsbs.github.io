@@ -16,6 +16,7 @@ Anotações de administração de cluster, máquinas virtuais, containers LXC, a
 8. [Monitoramento e Logs](#monitoramento-logs)
 9. [Usuários e Permissões (pveum)](#usuarios-permissoes)
 10. [Boas Práticas](#boas-praticas)
+11. [Referências](#referencias)
 ---
 
 ## 1. <span id="cluster-nos">🖥️ Gerenciamento de Nós e Cluster</span>
@@ -334,3 +335,8 @@ Rodar `pvecm status` antes de desligar múltiplos nós evita perder quórum do c
 
 ### 🔹 Coordene a manutenção com o backend de armazenamento
 Ao evacuar um nó (seção 2), verifique também o estado do storage compartilhado — flags de manutenção esquecidas no Ceph ou um scrub em andamento no ZFS podem mascarar problemas reais. Veja as boas práticas específicas em [ceph.md](ceph.md#boas-praticas) e [zfs.md](zfs.md#boas-praticas).
+
+## 11. <span id="referencias">📚 Referências</span>
+
+- [Proxmox VE Administration Guide — Documentação oficial](https://pve.proxmox.com/pve-docs/pve-admin-guide.html)
+- [Proxmox VE Wiki](https://pve.proxmox.com/wiki/Main_Page)

@@ -14,6 +14,7 @@ Anotações de instalação, configuração de acesso e operação do dia a dia 
 8. [Contas, RBAC e Segurança](#contas-rbac)
 9. [ApplicationSets](#applicationsets)
 10. [Boas Práticas](#boas-praticas)
+11. [Referências](#referencias)
 ---
 
 ## 1. <span id="instalacao">📦 Instalação (Cluster & CLI)</span>
@@ -314,3 +315,9 @@ metadata:
 
 ### 🔹 Nunca edite recursos gerenciados diretamente no cluster
 Qualquer alteração manual feita fora do Git será revertida pelo ArgoCD caso `self-heal` esteja ativo — e, mesmo sem ele, o recurso aparecerá como `OutOfSync` até a próxima sincronização. Trate o Git como única fonte da verdade (o próprio princípio de GitOps).
+
+## 11. <span id="referencias">📚 Referências</span>
+
+- [Argo CD — Documentação oficial](https://argo-cd.readthedocs.io/en/stable/)
+- [Getting Started](https://argo-cd.readthedocs.io/en/stable/getting_started/)
+- [CLI Installation](https://argo-cd.readthedocs.io/en/stable/cli_installation/)

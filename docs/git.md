@@ -18,6 +18,7 @@ Anotações de configuração, ciclo de vida de arquivos, gerenciamento de branc
 13. [Submódulos (git submodule)](#git-submodule)
 14. [Recuperação de Emergência (git reflog)](#rollback)
 15. [Boas Práticas, Git Flow e Commits Semânticos](#boas-praticas)
+16. [Referências](#referencias)
 ---
 
 ## 1. <span id="config-inicial">⚙️ Configurações Iniciais</span>
@@ -763,3 +764,10 @@ git commit -m "chore(repo): reorganizar estrutura de diretórios"
 - ✅ Antes de abrir o Merge Request/Pull Request, revise ortografia, comandos, caminhos e datas — e confira se os exemplos ainda são consistentes com o restante do repositório.
 - ✅ Ao concluir uma entrega estável, prefira criar uma tag de versão (seção 10) a deixar apenas o commit "solto" no histórico — isso facilita rollback e auditoria futura.
 - ✅ Apague branches temporárias após o merge; branches vivas e esquecidas divergem do código real e confundem o time.
+
+## 16. <span id="referencias">📚 Referências</span>
+
+- [Git — Documentação oficial](https://git-scm.com/doc)
+- [Pro Git Book](https://git-scm.com/book/en/v2)
+- [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+- [GitLab Push Options](https://docs.gitlab.com/user/project/push_options/)

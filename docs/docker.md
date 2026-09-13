@@ -16,6 +16,7 @@ Este guia centraliza os principais comandos do Docker utilizados no dia a dia pa
 10. [Redes (Networking)](#redes-docker)
 11. [Docker Compose](#docker-compose)
 12. [Limpeza e Manutenção do Sistema](#limpeza-sistema)
+13. [Referências](#referencias)
 ---
 
 ## 1. <span id="execucao-de-containers">🚀 Execução de Containers (docker run)</span>
@@ -480,3 +481,9 @@ Exibe versão, driver de storage, número de containers/imagens e recursos totai
 ```bash
 docker info
 ```
+
+## 13. <span id="referencias">📚 Referências</span>
+
+- [Docker Docs — Documentação oficial](https://docs.docker.com/)
+- [Docker CLI reference](https://docs.docker.com/reference/cli/docker/)
+- [Docker Compose — Documentação oficial](https://docs.docker.com/compose/)

@@ -11,6 +11,7 @@ Anotações de administração de partições, discos e do sistema de arquivos J
 5. [Montagem Persistente via `/etc/fstab`](#montagem-persistente)
 6. [Verificação e Monitoramento](#verificacao-monitoramento)
 7. [Boas Práticas e Pegadinhas](#boas-praticas)
+8. [Referências](#referencias)
 ---
 
 ## 1. <span id="diagnostico-inicial">🔍 Diagnóstico Inicial</span>
@@ -181,3 +182,7 @@ O pacote `jfsutils` tem atualizações mais espaçadas que `xfsprogs` ou `e2fspr
 
 ### 🔹 Confirme o redimensionamento do disco virtual no hypervisor antes de tudo
 Em VMs (Proxmox, etc.), `growpart`/`resize` só têm o que expandir se o disco virtual já foi aumentado no lado do hypervisor. Verifique isso primeiro caso `growpart` não encontre espaço livre.
+
+## 8. <span id="referencias">📚 Referências</span>
+
+- [IBM's Journaled File System (JFS) for Linux (kernel.org) — Documentação oficial](https://docs.kernel.org/admin-guide/jfs.html)

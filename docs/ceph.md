@@ -12,6 +12,7 @@ Anotações de diagnóstico, manutenção, OSDs, pools, monitores e RBD para um 
 6. [RBD (RADOS Block Device)](#rbd)
 7. [Autenticação e Chaves (cephx)](#autenticacao-cephx)
 8. [Boas Práticas](#boas-praticas)
+9. [Referências](#referencias)
 ---
 
 ## 1. <span id="status-diagnostico">🔍 Status e Diagnóstico do Cluster</span>
@@ -274,3 +275,9 @@ Um fator de replicação menor que 3 reduz a tolerância a falhas simultâneas d
 
 ### 🔹 Acompanhe a re-replicação após remover ou trocar um OSD
 Depois de um `osd out`/`osd purge`, monitore `ceph -s` até o cluster voltar para `active+clean` antes de iniciar qualquer outra manutenção — remover um segundo OSD nesse meio tempo pode colocar dados em risco.
+
+## 9. <span id="referencias">📚 Referências</span>
+
+- [Ceph Documentation — Documentação oficial](https://docs.ceph.com/)
+- [Deploy Hyper-Converged Ceph Cluster (Proxmox Wiki)](https://pve.proxmox.com/wiki/Deploy_Hyper-Converged_Ceph_Cluster)
+- [pveceph(1) — manual do utilitário de integração Proxmox+Ceph](https://pve.proxmox.com/pve-docs/pveceph.1.html)
