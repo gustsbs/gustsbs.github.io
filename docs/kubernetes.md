@@ -16,6 +16,7 @@ Anotações de instalação, configuração de contexto, gerenciamento de worklo
 10. [Nodes e Manutenção do Cluster](#nodes-cluster)
 11. [RBAC e Segurança](#rbac-seguranca)
 12. [Helm (Gerenciador de Pacotes)](#helm)
+13. [Sealed Secrets (Bitnami)](#sealed-secrets)
 ---
 
 ## 1. <span id="instalacao-configuracao">⚙️ Instalação e Configuração do kubectl</span>
@@ -497,3 +498,98 @@ helm rollback minha-app 1 -n nome-do-namespace
 ```bash
 helm uninstall minha-app -n nome-do-namespace
 ```
+
+## 13. <span id="sealed-secrets">🔏 Sealed Secrets (Bitnami)</span>
+
+Camada de criptografia assimétrica para versionar segredos com segurança em um repositório Git (GitOps), sem depender apenas do base64 do `Secret` nativo (veja a seção [ConfigMaps e Secrets](#configmaps-secrets)). Um controller instalado no cluster mantém a chave privada, nunca exposta fora dele, enquanto o CLI `kubeseal` usa a chave pública correspondente para cifrar um `Secret` comum, produzindo um recurso `SealedSecret` que só aquele controller consegue decifrar — o `SealedSecret` pode então ser versionado no Git com segurança, mesmo que o repositório venha a ser exposto.
+
+### 🔹 Instalar o controller no cluster
+Referência oficial: https://github.com/bitnami-labs/sealed-secrets/releases — troque a versão pela mais recente disponível. Por padrão, instala no namespace `kube-system` com o nome `sealed-secrets-controller`.
+```bash
+kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.27.1/controller.yaml
+```
+
+### 🔹 Instalar o CLI kubeseal (Linux)
+```bash
+KUBESEAL_VERSION='0.27.1'
+curl -OL "https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz"
+tar -xvzf "kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz" kubeseal
+sudo install -m 755 kubeseal /usr/local/bin/kubeseal
+```
+
+### 🔹 Verificar a instalação
+```bash
+kubeseal --version
+kubectl get pods -n kube-system -l name=sealed-secrets-controller
+```
+
+### 🔹 Criar um Secret comum (sem aplicar) a partir de um arquivo
+`--dry-run=client -o yaml` gera o manifesto localmente sem criar o recurso no cluster — é esse arquivo que será selado a seguir.
+```bash
+kubectl create secret generic chamados-config \
+  --from-file=config_db.php=./config_db.php \
+  -n chamados-teste \
+  --dry-run=client -o yaml > chamados-config-secret.yaml
+```
+
+### 🔹 Selar o Secret (gerar o SealedSecret)
+Cifra o conteúdo do Secret usando a chave pública do controller — requer acesso ao cluster para localizá-lo (veja a seguir a alternativa via certificado exportado).
+```bash
+kubeseal --controller-namespace kube-system \
+  --controller-name sealed-secrets-controller \
+  --format yaml \
+  < chamados-config-secret.yaml > chamados-teste-sealedsecret-config_db.yaml
+```
+
+### 🔹 Selar sem acesso direto ao cluster (usando o certificado público)
+Útil em uma pipeline de CI/CD ou máquina sem `kubectl` configurado para o cluster de destino — basta ter o certificado público exportado previamente.
+```bash
+kubeseal --fetch-cert \
+  --controller-namespace kube-system \
+  --controller-name sealed-secrets-controller > sealed-secrets-public-cert.pem
+
+kubeseal --cert sealed-secrets-public-cert.pem --format yaml \
+  < chamados-config-secret.yaml > chamados-teste-sealedsecret-config_db.yaml
+```
+
+### 🔹 Aplicar o SealedSecret
+O controller detecta o novo recurso, decifra o conteúdo com a chave privada e cria automaticamente o `Secret` real no namespace de destino — o `SealedSecret` em si não é montado em nenhum Pod, apenas o `Secret` que ele gera.
+```bash
+kubectl apply -f chamados-teste-sealedsecret-config_db.yaml
+kubectl get secret chamados-config -n chamados-teste
+```
+
+### 🔹 Referenciar o Secret gerado em um volume
+Como o `SealedSecret` só existe para produzir o `Secret` real, o `Deployment`/`CronJob` continua referenciando um volume do tipo `secret` — apenas trocando a origem que antes era `configMap` (veja também [Sync Waves](argocd.md#boas-praticas) em argocd.md para evitar um `FailedMount` transitório nessa troca).
+```yaml
+volumes:
+  - name: glpi-config
+    secret:
+      secretName: chamados-config
+```
+
+Escopo de vínculo nome/namespace (`--scope` no momento de selar):
+
+| Escopo | Comportamento |
+| :--- | :--- |
+| `strict` (padrão) | Só decifra se nome e namespace de destino forem exatamente os mesmos usados ao selar |
+| `namespace-wide` | Pode ser renomeado livremente, desde que permaneça no mesmo namespace |
+| `cluster-wide` | Pode ser movido para qualquer namespace do cluster |
+
+### 🔹 Fazer backup da chave privada do controller
+⚠️ **Atenção:** sem essa chave, nenhum `SealedSecret` já versionado no Git pode ser decifrado em caso de perda do cluster ou reinstalação do controller — trate este backup com o mesmo cuidado de uma chave de criptografia mestra, fora do repositório Git.
+```bash
+kubectl get secret -n kube-system \
+  -l sealedsecrets.bitnami.com/sealed-secrets-key \
+  -o yaml > sealed-secrets-master-key-backup.yaml
+```
+
+### 🔹 Restaurar a chave privada em um controller novo
+Antes de reinstalar o controller (ex.: recriação do cluster), aplique o backup da chave para que ele volte a decifrar os `SealedSecrets` já existentes no Git.
+```bash
+kubectl apply -f sealed-secrets-master-key-backup.yaml
+kubectl delete pod -n kube-system -l name=sealed-secrets-controller
+```
+
+### 🔹 Quando é preciso reselar um segredo
+Não é necessário refazer o processo a cada atualização de imagem/versão da aplicação — apenas quando o **valor** do segredo muda, quando o **nome** ou **namespace** de destino mudam, ou quando o controller/cluster é reconstruído do zero (sem a chave privada restaurada do backup acima).

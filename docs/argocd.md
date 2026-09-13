@@ -303,5 +303,14 @@ metadata:
     argocd.argoproj.io/sync-wave: "-1"
 ```
 
+Exemplo real: evita um `FailedMount` transitório ao sincronizar um `Deployment` que referencia um Secret gerado a partir de um `SealedSecret` (veja [Sealed Secrets em kubernetes.md](kubernetes.md#sealed-secrets)) — o wave negativo garante que o controller já tenha decifrado o `SealedSecret` e criado o `Secret` real antes do Deployment tentar montar o volume.
+```yaml
+metadata:
+  name: chamados-teste-sealedsecret-config_db
+  namespace: chamados-teste
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+```
+
 ### 🔹 Nunca edite recursos gerenciados diretamente no cluster
 Qualquer alteração manual feita fora do Git será revertida pelo ArgoCD caso `self-heal` esteja ativo — e, mesmo sem ele, o recurso aparecerá como `OutOfSync` até a próxima sincronização. Trate o Git como única fonte da verdade (o próprio princípio de GitOps).
