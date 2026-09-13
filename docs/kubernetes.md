@@ -138,9 +138,22 @@ kubectl exec -it poddaaplicacao-59bf74f8b4-pfrxh -c nome-do-container -n nome-do
 ```
 
 ### 🔹 Copiar arquivos de/para um pod
+O primeiro argumento é sempre a **origem** e o segundo o **destino**; o lado que representa o pod usa o formato `namespace/pod:caminho`. O erro mais comum é inverter os dois — por exemplo, tentar copiar algo *do* pod colocando o caminho local primeiro (`kubectl cp /caminho/no/pod namespace/pod:./destino`), o que o `kubectl` interpreta como se `/caminho/no/pod` fosse um arquivo local, retornando `doesn't exist in local filesystem`.
 ```bash
+# Do computador local para dentro do pod
 kubectl cp ./arquivo.conf nome-do-namespace/poddaaplicacao-59bf74f8b4-pfrxh:/app/arquivo.conf
+
+# De dentro do pod para o computador local
 kubectl cp nome-do-namespace/poddaaplicacao-59bf74f8b4-pfrxh:/var/log/app.log ./app.log
+```
+
+### 🔹 Copiar um arquivo do pod quando o container não tem `tar`
+⚠️ **Atenção:** `kubectl cp` depende do binário `tar` **dentro do container** para empacotar os dados — imagens mínimas (sem `tar` instalado) fazem o comando falhar silenciosamente ou com um erro genérico, mesmo com a sintaxe correta. Nesse caso, use `kubectl exec` com `cat` e capture a saída em base64, o que preserva arquivos binários (uma chave de criptografia, por exemplo) sem depender de nada além de `cat` no container.
+```bash
+kubectl exec -n chamados-teste chamados-674977d5b9-zmmff -- \
+  cat /var/www/html/config/glpicrypt.key | base64 -w0 > glpicrypt.key.b64
+
+base64 -d glpicrypt.key.b64 > glpicrypt.key
 ```
 
 ### 🔹 Encaminhar uma porta local para o pod (port-forward)
