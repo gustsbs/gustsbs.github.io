@@ -19,12 +19,12 @@ Integração de VMs Linux (Ubuntu 24.04) à autenticação centralizada via Open
 Antes de instalar qualquer pacote, vale confirmar que a VM alvo consegue resolver e alcançar o servidor LDAP — evita perder tempo depurando PAM quando o problema é de rede.
 
 ### 🔹 Nomes DNS do LDAP institucional
-`ldap.teste.ufpr.br` é **split-horizon**: resolve para um IP diferente dependendo de qual rede a VM está (ex.: um IP na rede interna, outro em redes externas) — sempre aponta para o nó/proxy **ativo** de um par de alta disponibilidade. Existe também um nome separado (`master.ldap.ufpr.br`) usado **apenas por sistemas que precisam escrever** no LDAP (ex.: troca de senha via `rootpwmoddn`) — não usar esse nome como servidor principal em VMs que só fazem leitura (autenticação/NSS).
+`ldap.teste.gustbrito.local` é **split-horizon**: resolve para um IP diferente dependendo de qual rede a VM está (ex.: um IP na rede interna, outro em redes externas) — sempre aponta para o nó/proxy **ativo** de um par de alta disponibilidade. Existe também um nome separado (`master.ldap.gustbrito.local`) usado **apenas por sistemas que precisam escrever** no LDAP (ex.: troca de senha via `rootpwmoddn`) — não usar esse nome como servidor principal em VMs que só fazem leitura (autenticação/NSS).
 
 ### 🔹 Confirmar resolução e alcance do servidor
 ```bash
-getent hosts ldap.teste.ufpr.br
-nc -zv ldap.teste.ufpr.br 389
+getent hosts ldap.teste.gustbrito.local
+nc -zv ldap.teste.gustbrito.local 389
 ```
 
 ⚠️ **Atenção:** bloqueios de VLAN/firewall entre segmentos de rede já causaram falhas silenciosas em outros serviços na infraestrutura (ex.: NFS). Se o `nc` não conectar, resolva a rede antes de seguir para os próximos passos.
@@ -55,8 +55,8 @@ A instalação da stack moderna abre um debconf simples com só duas perguntas �
 
 | Prompt | Resposta |
 | :--- | :--- |
-| LDAP server Uniform Resource Identifier | `ldap://ldap.teste.ufpr.br` |
-| LDAP search base | `dc=ufpr,dc=br` |
+| LDAP server Uniform Resource Identifier | `ldap://ldap.teste.gustbrito.local` |
+| LDAP search base | `dc=gustbrito,dc=local` |
 
 ⚠️ **Atenção:** o esquema `ldapi://` é para socket Unix **local** — não funciona apontando para um hostname remoto. Use `ldap://` (ou `ldaps://` se o proxy exigir TLS na porta 636).
 
@@ -67,12 +67,12 @@ cat > /etc/nslcd.conf << 'EOF'
 uid nslcd
 gid nslcd
 
-uri ldap://ldap.teste.ufpr.br
+uri ldap://ldap.teste.gustbrito.local
 
-base dc=ufpr,dc=br
+base dc=gustbrito,dc=local
 
 # Garante que a busca de grupos olhe sub-OUs recursivamente
-base group ou=groups,dc=ufpr,dc=br
+base group ou=groups,dc=gustbrito,dc=local
 scope group sub
 
 # Ignora contas de sistema na checagem LDAP
@@ -163,7 +163,7 @@ ls -la /home/usuario.teste
 ### 🔹 Depurar quando `getent` não retorna nada
 Teste a busca direto no LDAP, sem depender do NSS, pra isolar se o problema é rede/servidor ou config local:
 ```bash
-ldapsearch -x -H ldap://ldap.teste.ufpr.br -b dc=ufpr,dc=br "(uid=usuario.teste)"
+ldapsearch -x -H ldap://ldap.teste.gustbrito.local -b dc=gustbrito,dc=local "(uid=usuario.teste)"
 ```
 Se isso funcionar mas `getent` não, o problema está em `nsswitch.conf`/`nslcd.conf`/PAM. Se nem isso funcionar, é rede/firewall — volte à seção 1.
 
