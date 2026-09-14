@@ -10,8 +10,10 @@ Integração de VMs Linux (Ubuntu 24.04) à autenticação centralizada via Open
 5. [Configuração do Cliente LDAP (CLI)](#config-ldap-cli)
 6. [PAM — Home Directory Automática](#pam-mkhomedir)
 7. [Serviços e Validação](#servicos-validacao)
-8. [Boas Práticas e Pegadinhas](#boas-praticas)
-9. [Referências](#referencias)
+8. [SSH em Porta Alternativa](#ssh-porta-alternativa)
+9. [Sudo via Grupo LDAP](#sudo-grupo-ldap)
+10. [Boas Práticas e Pegadinhas](#boas-praticas)
+11. [Referências](#referencias)
 ---
 
 ## 1. <span id="diagnostico-pre-requisitos">🔍 Diagnóstico e Pré-requisitos</span>
@@ -135,7 +137,7 @@ EOF
 ```bash
 pam-auth-update
 ```
-Marque: `Unix authentication`, `LDAP Authentication`, `activate mkhomedir` (o perfil customizado acima), `Register user sessions in the systemd control group hierarchy`, `Inheritable Capabilities Management`. **Deixe desmarcado** `Create home directory on login` (o perfil padrão do sistema) — ver pegadinha na seção 8.
+Marque: `Unix authentication`, `LDAP Authentication`, `activate mkhomedir` (o perfil customizado acima), `Register user sessions in the systemd control group hierarchy`, `Inheritable Capabilities Management`. **Deixe desmarcado** `Create home directory on login` (o perfil padrão do sistema) — ver pegadinha na seção 10.
 
 Isso gera `/etc/pam.d/common-{auth,account,password,session,session-noninteractive}` automaticamente — não editar esses arquivos na mão.
 
@@ -167,7 +169,94 @@ ldapsearch -x -H ldap://ldap.teste.gustbrito.local -b dc=gustbrito,dc=local "(ui
 ```
 Se isso funcionar mas `getent` não, o problema está em `nsswitch.conf`/`nslcd.conf`/PAM. Se nem isso funcionar, é rede/firewall — volte à seção 1.
 
-## 8. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
+## 8. <span id="ssh-porta-alternativa">🔌 SSH em Porta Alternativa</span>
+
+Mudar a porta do SSH do padrão (22) pra outra, como parte do fechamento de hardening da VM.
+
+### 🔹 Alterar a porta no sshd_config
+```bash
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+sed -i -E 's/^#?Port .*/Port 1022/' /etc/ssh/sshd_config
+sshd -t   # valida a sintaxe antes de reiniciar
+```
+
+### 🔹 Liberar a porta no firewall antes de reiniciar
+```bash
+ufw allow 1022/tcp
+systemctl restart ssh
+```
+
+⚠️ **Atenção — risco de lockout:** não feche a sessão atual. Abra um segundo terminal e teste `ssh -p 1022 usuario@<ip-da-vm>` com a sessão original ainda aberta. Só depois de confirmar que a porta nova funciona é que vale remover a regra da porta 22 do firewall.
+
+### 🔹 Pegadinha: Ubuntu 24.04 usa socket activation pro SSH
+Mudar `Port` no `sshd_config` pode não ter efeito nenhum na prática — `sshd -T | grep port` mostra a porta "certa", mas quem realmente faz o bind é a unit `ssh.socket` (`systemctl status ssh` mostra `TriggeredBy: ● ssh.socket`). A diretiva `Port` do `sshd_config` é ignorada nesse modelo porque o socket já chega pronto via file descriptor, entregue pelo `systemd`.
+
+Fix — reconfigurar o socket, não o `sshd_config`:
+```bash
+systemctl edit ssh.socket
+```
+Adicione:
+```ini
+[Socket]
+ListenStream=
+ListenStream=1022
+```
+(a linha vazia é necessária — `ListenStream` é cumulativo; sem ela o socket escuta na 22 *e* na 1022, em vez de trocar)
+```bash
+systemctl daemon-reload
+systemctl restart ssh.socket
+ss -tlnp | grep -E ':22|:1022'
+```
+
+Alternativa mais simples — abandonar o socket activation e deixar o `sshd.service` escutar direto, do jeito clássico:
+```bash
+systemctl disable --now ssh.socket
+systemctl enable --now ssh.service
+```
+
+## 9. <span id="sudo-grupo-ldap">🔐 Sudo via Grupo LDAP</span>
+
+Liberar sudo/root pra quem estiver num grupo LDAP específico, em vez de gerenciar usuário por usuário.
+
+### 🔹 Criar a regra num arquivo dedicado
+Evite editar `/etc/sudoers` direto — use um arquivo em `/etc/sudoers.d/`, mais seguro e não conflita em upgrades de pacote:
+```bash
+echo '%teste-admin ALL=(ALL) ALL' > /etc/sudoers.d/ldap-teste-admin
+chmod 440 /etc/sudoers.d/ldap-teste-admin
+visudo -c   # valida a sintaxe antes de sair da sessão root
+```
+
+### 🔹 Confirmar que o grupo resolve antes de confiar na regra
+```bash
+getent group teste-admin
+```
+Se não retornar nada, o `%teste-admin` no sudoers é **silenciosamente ignorado** — ninguém do grupo ganha sudo, sem erro nenhum. O grupo precisa estar dentro do escopo configurado na seção 3 (`base group`/`scope group sub`).
+
+### 🔹 Testar antes de encerrar a sessão root
+```bash
+ssh <usuario-do-grupo>@<ip-da-vm>
+sudo -l   # deve listar "(ALL) ALL"
+```
+
+### 🔹 Pegadinha grande: `nscd` quebra `id`/`sudo` sem deixar rastro óbvio
+Se `getent group teste-admin` mostra o usuário certo, mas `id <usuario>` e `sudo -l -U <usuario>` só mostram o grupo primário (sem nenhum grupo suplementar) — e o log do `nslcd` (`journalctl -u nslcd`) nem registra uma consulta de grupo quando você roda `id` — o suspeito é o `nscd`. Ele intercepta `initgroups()` no nível da libc, **antes** da chamada chegar no `nsswitch.conf`/`nslcd`, e pode estar servindo um cache vazio/antigo de antes do LDAP estar bem configurado. `getent group` (enumeração completa) não passa pelo mesmo cache — por isso só ele funciona certo enquanto `id`/`sudo` continuam errados.
+
+Diagnóstico:
+```bash
+dpkg -l | grep nscd
+systemctl status nscd 2>/dev/null
+```
+Fix:
+```bash
+systemctl stop nscd
+systemctl disable nscd
+apt purge -y nscd
+```
+Não precisa reiniciar mais nada depois disso — teste `id <usuario>` numa sessão nova.
+
+**O que NÃO resolve esse sintoma específico** (pra não perder tempo tentando de novo): reiniciar `nslcd`/`sshd`; adicionar uma linha `+` em `/etc/group`/`/etc/passwd` (é uma pegadinha clássica de NSS `compat` + NIS, mas não é a causa aqui — dá pra ter `compat` funcionando perfeitamente sem nenhum `+`); comparar `nsswitch.conf` ou a versão dos pacotes `nslcd`/`libnss-ldapd`/`libpam-ldapd` entre máquinas, se já estiverem idênticos.
+
+## 10. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
 
 ### 🔹 Prefira o FQDN do proxy à IP fixo
 Um servidor LDAP institucional normalmente roda em par de alta disponibilidade atrás de um nome com DNS split-horizon. Hardcodar um IP fixo no `uri` do `nslcd.conf` corre o risco de apontar para um nó específico que saia do ar num failover — prefira sempre o FQDN.
@@ -184,7 +273,10 @@ Os perfis PAM/NSS gerados normalmente incluem `minimum_uid=1000` — isso faz co
 ### 🔹 Bind anônimo é aceitável para leitura
 Se o servidor permitir bind anônimo ("Does the LDAP database require login? No"), não é necessário configurar `binddn`/`bindpw` no `nslcd.conf` para autenticação/NSS — só seria necessário para operações de escrita.
 
-## 9. <span id="referencias">📚 Referências</span>
+### 🔹 `nscd` instalado por engano não basta ignorar — tem que remover
+Mesmo sem querer instalar de propósito, se `nscd` ficou presente de alguma tentativa anterior, ele quebra `initgroups()` (`id`/`sudo`) de um jeito que não aparece nem no log do `nslcd` nem no `getent group`. Ver diagnóstico e fix completos na seção 9.
+
+## 11. <span id="referencias">📚 Referências</span>
 
 - [nss-pam-ldapd — nslcd.conf(5) man page](https://arthurdejong.org/nss-pam-ldapd/nslcd.conf.5)
 - [Debian Wiki — LDAP Client Authentication](https://wiki.debian.org/LDAP/NSS)
