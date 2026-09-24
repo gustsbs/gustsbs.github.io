@@ -1,6 +1,6 @@
 # 🧪 Fio - Comandos Rápidos
 
-Anotações de uso do `fio` (*Flexible I/O Tester*) para medir desempenho de armazenamento (IOPS, vazão e latência) em volumes usados por aplicações no Kubernetes. Baseado nos testes comparativos feitos durante a dissertação entre NFSv3, CephFS e Ceph S3 (GLPI e WordPress) — veja também [ceph.md](ceph.md) e [kubernetes.md](kubernetes.md).
+Anotações de uso do `fio` (*Flexible I/O Tester*) para medir desempenho de armazenamento (IOPS, vazão e latência) em volumes usados por aplicações no Kubernetes. Útil para comparar backends como NFS, CephFS e Ceph S3 antes de escolher onde hospedar uma aplicação — veja também [ceph.md](ceph.md) e [kubernetes.md](kubernetes.md).
 
 ## 📑 Índice
 
@@ -8,9 +8,8 @@ Anotações de uso do `fio` (*Flexible I/O Tester*) para medir desempenho de arm
 2. [Teste Padrão: Carga Aleatória Mista 70/30](#teste-padrao)
 3. [Rodando o Teste Dentro do Kubernetes](#kubernetes)
 4. [Lendo o Resultado](#lendo-resultado)
-5. [Resultados de Referência (NFS x CephFS x Ceph S3)](#resultados)
-6. [Boas Práticas e Pegadinhas](#boas-praticas)
-7. [Referências](#referencias)
+5. [Boas Práticas e Pegadinhas](#boas-praticas)
+6. [Referências](#referencias)
 ---
 
 ## 1. <span id="instalacao">📦 Instalação</span>
@@ -32,7 +31,7 @@ fio --version
 
 ## 2. <span id="teste-padrao">⚙️ Teste Padrão: Carga Aleatória Mista 70/30</span>
 
-Perfil usado em todos os comparativos da dissertação: leitura e escrita aleatórias misturadas (70% leitura / 30% escrita), blocos pequenos de 4 KiB e 4 processos concorrentes durante 60 segundos. Simula bem uma aplicação PHP (GLPI, WordPress), que lê e grava muitos arquivos pequenos.
+Perfil de carga sugerido: leitura e escrita aleatórias misturadas (70% leitura / 30% escrita), blocos pequenos de 4 KiB e 4 processos concorrentes durante 60 segundos. Simula bem uma aplicação PHP (GLPI, WordPress), que lê e grava muitos arquivos pequenos.
 
 ### 🔹 Rodar o teste em um diretório montado
 O `--directory` precisa apontar para dentro do volume que se quer medir (NFS, CephFS, bucket S3 montado etc.), não para o disco local do contêiner.
@@ -76,17 +75,17 @@ Para medir o volume exatamente como a aplicação o enxerga, o teste roda dentro
 
 ### 🔹 Entrar em um Pod já existente da aplicação
 ```bash
-kubectl exec -it -n chamados-teste deploy/chamados -- sh
+kubectl exec -it -n glpi-teste deploy/glpi -- sh
 ```
 
 ### 🔹 Criar um Pod dedicado só para o teste
-Foi o que se fez para o Ceph S3: um Pod montando o volume, de forma análoga ao NFS, sem mexer na aplicação.
+Permite medir qualquer volume (NFS, CephFS, bucket S3 montado) sem mexer na aplicação.
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
   name: fio-bench
-  namespace: gedai-teste
+  namespace: wordpress-teste
 spec:
   containers:
     - name: fio
@@ -103,20 +102,20 @@ spec:
 
 ```bash
 kubectl apply -f fio-bench.yaml
-kubectl exec -it -n gedai-teste fio-bench -- \
+kubectl exec -it -n wordpress-teste fio-bench -- \
   fio --name=teste --directory=/mnt/alvo --rw=randrw --rwmixread=70 --bs=4k \
       --size=1G --numjobs=4 --runtime=60 --time_based --group_reporting
 ```
 
 ### 🔹 Remover o Pod de teste ao final
 ```bash
-kubectl delete pod -n gedai-teste fio-bench
+kubectl delete pod -n wordpress-teste fio-bench
 ```
 
 ## 4. <span id="lendo-resultado">📊 Lendo o Resultado</span>
 
 ### 🔹 Onde olhar na saída
-Trecho real (NFS), com os campos mais importantes:
+Exemplo de saída (volume NFS), com os campos mais importantes:
 ```text
 read: IOPS=516, BW=2066KiB/s (2115kB/s)(144MiB/71599msec)
     clat (usec): min=256, max=27707k, avg=7565.42, stdev=289753.77
@@ -136,31 +135,10 @@ cpu  : usr=0.29%, sys=0.95%
 | `run=71599msec` | Tempo real de execução — se passar do `--runtime`, houve operações travadas. |
 | `cpu usr/sys` | Uso de CPU do cliente; valores baixos indicam gargalo em rede/armazenamento, não em processamento. |
 
-## 5. <span id="resultados">🏁 Resultados de Referência (NFS x CephFS x Ceph S3)</span>
-
-### 🔹 GLPI: NFSv3 (produção) x CephFS (teste)
-Mesmo com hardware de produção melhor, o GLPI parecia mais lento em produção — a causa não era o NFS em si, e sim as sessões do PHP gravadas como arquivos no volume NFS (travas `flock()` pela rede). Resolvido movendo sessões e cache para o Redis.
-
-| Métrica | NFSv3 | CephFS |
-| :--- | :--- | :--- |
-| IOPS leitura / escrita | 1.434 / 621 | 235 / 104 |
-| Vazão leitura / escrita | 5,7 / 2,5 MiB/s | 0,94 / 0,42 MiB/s |
-| Latência média de leitura | 2,7 ms | 17,0 ms |
-
-### 🔹 WordPress: NFS x Ceph S3 (bucket montado como diretório)
-
-| Métrica | Ceph S3 (1ª) | Ceph S3 (2ª) | NFS |
-| :--- | :--- | :--- | :--- |
-| IOPS leitura / escrita | 93 / 41 | 165 / 74 | 516 / 227 |
-| Latência média de leitura | 39,7 ms | 22,9 ms | 7,6 ms |
-| Latência de leitura (p99) | 42,7 ms | 54,3 ms | 77,1 ms |
-
-Conclusão: com blocos de 4 KiB, o S3 montado como diretório precisa transformar cada operação em uma requisição HTTP — o NFS entrega de 3 a 5,5 vezes mais IOPS. O S3 serve para mídia (*uploads*), não para o código PHP.
-
-## 6. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
+## 5. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
 
 ### 🔹 O valor `17112761` nos percentis não é um travamento de 17 s "igual" em todos os testes
-É o limite da última faixa do histograma de latência do `fio`: toda latência acima de ~17,1 s cai nessa mesma faixa. Dois testes mostrando esse mesmo número não provam um gargalo comum — olhe o `max=` real de cada teste (ex.: 57,6 s, 20,2 s, 27,7 s).
+É o limite da última faixa do histograma de latência do `fio`: toda latência acima de ~17,1 s cai nessa mesma faixa. Dois testes mostrando esse mesmo número não provam um gargalo comum — olhe o `max=` real de cada teste, que costuma ser diferente em cada um.
 
 ### 🔹 Apague os arquivos de teste depois
 O `fio` deixa os arquivos (`<name>.<n>.0`) no diretório testado — 4 GiB no teste padrão.
@@ -172,10 +150,10 @@ rm /var/www/html/files/nfs.*.0
 ```
 
 ### 🔹 Cache infla os números de escrita
-Sem `--direct=1`, as escritas passam pelo cache de memória (do kernel ou do cliente NFS/S3) — foi por isso que a escrita no NFS mediu 26 µs. Para comparar volumes entre si isso é aceitável se todos forem testados igual; para medir o disco "de verdade", teste com `--direct=1` (nem todo sistema de arquivos em rede/FUSE aceita).
+Sem `--direct=1`, as escritas passam pelo cache de memória (do kernel ou do cliente NFS/S3) — por isso a escrita em NFS pode aparecer com latências de dezenas de microssegundos, bem abaixo do que o disco realmente entrega. Para comparar volumes entre si isso é aceitável se todos forem testados igual; para medir o disco "de verdade", teste com `--direct=1` (nem todo sistema de arquivos em rede/FUSE aceita).
 
 ### 🔹 Rode mais de uma vez
-A 1ª e a 2ª execução do Ceph S3 variaram quase 80% (aquecimento de cache, concorrência na rede). Use pelo menos duas execuções e registre as duas.
+Execuções seguidas no mesmo volume podem variar bastante (aquecimento de cache, concorrência na rede). Use pelo menos duas execuções e registre as duas.
 
 ### 🔹 Confira o `--directory` antes de rodar
 Um volume que não montou de verdade grava no disco efêmero do contêiner e o teste mede a coisa errada. Confirme com `df -h <diretório>` que o caminho está no volume de rede esperado.
@@ -186,9 +164,8 @@ df -h /var/www/html/files
 ### 🔹 Evite horário de pico em produção
 O teste gera carga real de E/S no servidor de armazenamento compartilhado — rode fora do horário de uso ou em volume de teste.
 
-## 7. <span id="referencias">📚 Referências</span>
+## 6. <span id="referencias">📚 Referências</span>
 
 - [fio — Documentação oficial](https://fio.readthedocs.io/)
 - [fio — Repositório no GitHub (axboe/fio)](https://github.com/axboe/fio)
 - [fio — Interpretando a saída (*Interpreting the output*)](https://fio.readthedocs.io/en/latest/fio_doc.html#interpreting-the-output)
-- Resultados originais dos testes: pasta `Defesa/testes durante estudo de caso` (`nfsv3vxcephfs.pdf`, `nfs x s3.pdf`) e Quadros de desempenho do Capítulo de Desenvolvimento da dissertação.
