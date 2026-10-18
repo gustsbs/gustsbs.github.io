@@ -523,6 +523,15 @@ Referência oficial: https://github.com/bitnami-labs/sealed-secrets/releases —
 kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.27.1/controller.yaml
 ```
 
+### 🔹 Instalar o controller via Helm (chart fixado por hash)
+O projeto mudou de `bitnami-labs` para `bitnami/sealed-secrets` e o índice Helm antigo (`bitnami-labs.github.io/sealed-secrets`) retorna 404 — baixe o chart da release e confira o SHA-256 publicado. Instalado via Helm, o controller se chama `sealed-secrets` (não `sealed-secrets-controller`), e o label passa a ser `app.kubernetes.io/name=sealed-secrets`. Passo a passo completo em [microk8s.md](microk8s.md#sealed-secrets).
+```bash
+curl -fsSLO https://github.com/bitnami/sealed-secrets/releases/download/helm-v2.18.6/sealed-secrets-2.18.6.tgz
+echo "4af8cb2b150b83460f15242e36706159cb77f6ba834f79a7bd172cb2f5debc72  sealed-secrets-2.18.6.tgz" | sha256sum -c -
+helm install sealed-secrets ./sealed-secrets-2.18.6.tgz -n kube-system
+kubectl get pods -n kube-system -l app.kubernetes.io/name=sealed-secrets
+```
+
 ### 🔹 Instalar o CLI kubeseal (Linux)
 ```bash
 KUBESEAL_VERSION='0.27.1'
