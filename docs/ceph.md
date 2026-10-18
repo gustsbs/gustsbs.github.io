@@ -7,13 +7,14 @@ Anotações de diagnóstico, manutenção, OSDs, pools, monitores e RBD para um 
 1. [Status e Diagnóstico do Cluster](#status-diagnostico)
 2. [Manutenção e Flags Operacionais](#manutencao-flags)
 3. [Gerenciamento de OSDs](#gerenciamento-osds)
-4. [Gerenciamento de Pools](#gerenciamento-pools)
-5. [Monitores e Managers (MON/MGR)](#monitores-managers)
-6. [RBD (RADOS Block Device)](#rbd)
-7. [Autenticação e Chaves (cephx)](#autenticacao-cephx)
-8. [Integração com Kubernetes (ceph-csi)](#ceph-csi)
-9. [Boas Práticas e Pegadinhas](#boas-praticas)
-10. [Referências](#referencias)
+4. [Detecção e Troca de Disco com Falha](#disco-com-falha)
+5. [Gerenciamento de Pools](#gerenciamento-pools)
+6. [Monitores e Managers (MON/MGR)](#monitores-managers)
+7. [RBD (RADOS Block Device)](#rbd)
+8. [Autenticação e Chaves (cephx)](#autenticacao-cephx)
+9. [Integração com Kubernetes (ceph-csi)](#ceph-csi)
+10. [Boas Práticas e Pegadinhas](#boas-praticas)
+11. [Referências](#referencias)
 ---
 
 ## 1. <span id="status-diagnostico">🔍 Status e Diagnóstico do Cluster</span>
@@ -177,7 +178,121 @@ pveceph osd create /dev/sdb
 ceph-volume lvm list
 ```
 
-## 4. <span id="gerenciamento-pools">🗄️ Gerenciamento de Pools</span>
+## 4. <span id="disco-com-falha">🩺 Detecção e Troca de Disco com Falha</span>
+
+Passo a passo para sair de um alerta genérico até a troca física de um disco, separando **disco com defeito** de **disco apenas lento** (classe inadequada). Registre a detecção como incidente e a troca física como mudança.
+
+### 🔹 Passo 1 — Verificar a saúde do cluster
+Qualquer `HEALTH_WARN` merece investigação. Alertas como `BLUESTORE_SLOW_OP_ALERT`, `SLOW_OPS` ou `DEVICE_HEALTH` são os que apontam para discos.
+```bash
+ceph -s
+```
+
+### 🔹 Passo 2 — Descobrir quais OSDs geraram o alerta
+```bash
+ceph health detail
+```
+```text
+[WRN] BLUESTORE_SLOW_OP_ALERT: 6 OSD(s) experiencing slow operations in BlueStore
+     osd.17 observed slow operation indications in BlueStore
+     osd.42 observed slow operation indications in BlueStore
+```
+
+### 🔹 Passo 3 — Confirmar a latência e localizar o host
+O `ceph osd perf` mostra a latência atual (ms); o `ceph osd find` diz em que servidor a OSD está. Se todas as OSDs lentas forem do mesmo host, suspeite do host (tipo de disco, controladora) antes de suspeitar de discos isolados.
+```bash
+ceph osd perf | sort -k3 -n -r | head -15
+ceph osd find 42 | grep -E '"host"|"osd"'
+```
+
+### 🔹 Passo 4 — Identificar o disco físico de cada OSD
+Mostra o modelo/número de série (`DEVICE`) e o caminho no sistema (`DEV`) — é o caminho que o `smartctl` usa.
+```bash
+ceph device ls-by-host ceph-node0
+ceph device ls-by-daemon osd.42
+```
+```text
+DEVICE                          DEV  DAEMONS  EXPECTED FAILURE
+SEAGATE_ST4000NM0295_ZC1XXXXX   sdv  osd.42
+```
+
+### 🔹 Passo 5 — Ler o SMART do disco
+Discos SAS mostram status e lista de defeitos; discos SATA mostram atributos. Atrás de controladora RAID (ex.: Dell PERC), use `-d megaraid,N`.
+```bash
+# SAS
+smartctl -a /dev/sdv | grep -iE "health|grown defect|uncorrected|non-medium"
+# SATA (vários de uma vez)
+for d in sdc sdd sde; do echo "=== /dev/$d"; smartctl -H -A /dev/$d | grep -E "overall-health|Reallocated_Sector_Ct|Current_Pending_Sector|Offline_Uncorrectable|UDMA_CRC_Error_Count|Power_On_Hours"; done
+# atrás da controladora
+smartctl -a -d megaraid,0 /dev/sdv | head -30
+```
+
+| Indicador | Saudável | Problema |
+| :--- | :--- | :--- |
+| `SMART Health Status` (SAS) / `overall-health` (SATA) | `OK` / `PASSED` | `impending failure`, `FAILED` |
+| `Elements in grown defect list` (SAS) | perto de 0 | milhares → disco falhando |
+| `Reallocated_Sector_Ct` / `Current_Pending_Sector` (SATA) | 0 | > 0 e crescendo |
+| `UDMA_CRC_Error_Count` (SATA) | 0 | alto → cabo/controladora, não o disco |
+
+### 🔹 Passo 6 — Decidir: defeito ou classe inadequada
+| Situação | Diagnóstico | Ação |
+| :--- | :--- | :--- |
+| SMART com falha/defeitos | Disco com defeito | Retirar a OSD (passo 8) e trocar o disco |
+| SMART saudável, mas sempre lento | Disco de classe inadequada (ex.: discos de vigilância, 5400 rpm) | Mitigar (passo 7) e planejar substituição |
+
+### 🔹 Passo 7 — Mitigar discos lentos sem mover dados
+Com `primary-affinity 0`, a OSD deixa de ser a primária das leituras — os clientes leem das réplicas em outros hosts. Não move dados e é reversível (`1`).
+```bash
+for o in 17 18 19 22 25; do ceph osd primary-affinity osd.$o 0; done
+ceph osd tree | head -30        # coluna PRI-AFF
+```
+
+### 🔹 Passo 8 — Retirar do cluster a OSD com defeito
+O `out` faz o Ceph copiar os dados para as outras OSDs. Opcionalmente, priorize o tráfego dos clientes durante a redistribuição.
+⚠️ **Atenção:** só retire uma OSD por vez e aguarde `active+clean` antes de mexer em outra.
+```bash
+ceph osd out osd.42
+ceph config set osd osd_mclock_profile high_client_ops
+watch -n 30 ceph -s                      # aguardar todos os PGs active+clean
+ceph config rm osd osd_mclock_profile
+ceph osd safe-to-destroy osd.42          # confirma que nenhum dado depende mais dela
+ceph orch osd rm 42 --replace            # cephadm: remove e reserva o ID para o disco novo
+```
+
+### 🔹 Passo 9 — Localizar o disco na gaveta do servidor
+Tente nesta ordem. **Antes de puxar o disco, confira o número de série na etiqueta.**
+```bash
+# a) pelo Ceph (depende de suporte da gaveta/controladora)
+ceph device light on SEAGATE_ST4000NM0295_ZC1XXXXX ident
+ceph device light off SEAGATE_ST4000NM0295_ZC1XXXXX ident
+# b) pela controladora Dell PERC
+perccli /c0 show
+perccli /c0/e32/s7 start locate
+perccli /c0/e32/s7 stop locate
+# c) último recurso: leitura contínua acende só o LED de atividade desse disco (somente leitura)
+dd if=/dev/sdv of=/dev/null bs=1M status=progress
+```
+Em servidores Dell, o iDRAC também oferece **Storage → Physical Disks → Blink**.
+
+### 🔹 Passo 10 — Conferir depois da troca
+Com `--replace`, o cephadm recria a OSD com o mesmo ID no disco novo.
+```bash
+ceph orch ps --daemon-type osd | grep osd.42
+ceph osd tree | grep -w osd.42
+ceph -s                                  # aguardar active+clean e o fim do alerta
+```
+
+### 🔹 Prevenção — ligar a previsão de falha e os alertas
+O Ceph coleta o SMART de todos os discos e pode prever falhas (coluna `EXPECTED FAILURE`). Sem alerta configurado, porém, o `HEALTH_WARN` passa despercebido.
+```bash
+ceph device monitoring on
+ceph mgr module enable diskprediction_local
+ceph config set global device_failure_prediction_mode local
+ceph device get-health-metrics SEAGATE_ST4000NM0295_ZC1XXXXX | head -40
+ceph orch ls | grep -E "prometheus|alertmanager|grafana"    # pilha de alertas do cephadm
+```
+
+## 5. <span id="gerenciamento-pools">🗄️ Gerenciamento de Pools</span>
 
 Pools são os "namespaces" lógicos do Ceph onde os dados são efetivamente armazenados — cada um com sua própria política de replicação e número de placement groups.
 
@@ -242,7 +357,7 @@ ceph osd pool get-quota kubernetes
 ceph osd pool delete nome-pool nome-pool --yes-i-really-really-mean-it
 ```
 
-## 5. <span id="monitores-managers">🧭 Monitores e Managers (MON/MGR)</span>
+## 6. <span id="monitores-managers">🧭 Monitores e Managers (MON/MGR)</span>
 
 Monitores (MON) mantêm o mapa de estado do cluster; Managers (MGR) expõem métricas, dashboard e módulos de automação.
 
@@ -268,7 +383,7 @@ Ativa a interface web nativa do Ceph, com métricas e visão gráfica de pools, 
 ceph mgr module enable dashboard
 ```
 
-## 6. <span id="rbd">📀 RBD (RADOS Block Device)</span>
+## 7. <span id="rbd">📀 RBD (RADOS Block Device)</span>
 
 RBD é o mecanismo de blocos do Ceph usado, por exemplo, pelo Proxmox para armazenar discos de VMs diretamente em um pool Ceph.
 
@@ -327,7 +442,7 @@ umount /mnt/pericia && rbd unmap /dev/rbd0
 rbd rm nome-pool/novo-disco
 ```
 
-## 7. <span id="autenticacao-cephx">🔐 Autenticação e Chaves (cephx)</span>
+## 8. <span id="autenticacao-cephx">🔐 Autenticação e Chaves (cephx)</span>
 
 O Ceph usa o protocolo `cephx` para autenticar clientes e serviços — cada cliente (usuário, VM, serviço) possui uma chave com capabilities específicas por recurso.
 
@@ -383,7 +498,7 @@ ceph auth get-or-create client.k8s-rbd mon 'profile rbd' osd 'profile rbd pool=k
 ceph auth del client.novo-usuario
 ```
 
-## 8. <span id="ceph-csi">☸️ Integração com Kubernetes (ceph-csi)</span>
+## 9. <span id="ceph-csi">☸️ Integração com Kubernetes (ceph-csi)</span>
 
 O ceph-csi é o driver que cria imagens RBD (ou volumes CephFS) quando um PVC é pedido e as monta nos nós. A chave do Ceph pertence ao **driver**, não aos sites: normalmente uma por cluster Kubernetes (ou por StorageClass). O isolamento entre namespaces é feito pelo próprio Kubernetes.
 
@@ -463,7 +578,7 @@ spec:
     persistentvolumeclaims: "3"
 ```
 
-## 9. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
+## 10. <span id="boas-praticas">🧭 Boas Práticas e Pegadinhas</span>
 
 ### 🔹 Trate flags de manutenção como um par
 Toda vez que você `set` uma flag (`noout`, `noscrub`, `nobackfill`, etc.), programe-se para `unset` assim que a manutenção terminar — flags esquecidas ativas mascaram problemas reais de saúde do cluster e atrasam a recuperação automática.
@@ -489,13 +604,19 @@ Mais de um cluster Ceph no mesmo ambiente é comum. Um pool "inexistente" ou um 
 ### 🔹 O host mais lento dita a latência de escrita
 Com réplica 3 e uma regra que espalha os dados por todos os hosts, quase toda escrita espera uma OSD do servidor mais lento. Acompanhe `ceph osd perf`: se o topo for sempre o mesmo host, investigue os discos dele (`ceph health detail`, SMART) ou reduza o peso dele no CRUSH.
 
+### 🔹 Não use discos de vigilância em OSDs
+Discos de vigilância (ex.: linha "Purple") foram feitos para gravação sequencial contínua de vídeo. Mesmo novos e com SMART perfeito, ficam lentos sob a escrita aleatória com réplicas do Ceph e aparecem em `BLUESTORE_SLOW_OP_ALERT`. Especifique discos de linha empresarial/NAS nas compras.
+
+### 🔹 Sinal sem alerta é o mesmo que não ter sinal
+Um disco com falha iminente pode passar semanas em `HEALTH_WARN` sem ninguém ver. Ligue a previsão de falha do Ceph e encaminhe os alertas (Alertmanager, iDRAC, `smartd`) para a equipe.
+
 ### 🔹 Regra padrão não separa HDD de SSD
 A `replicated_rule` criada na instalação usa a raiz inteira. Crie regras por classe antes de colocar cargas sensíveis a latência (etcd, bancos) num pool.
 
 ### 🔹 Apagar arquivos não devolve espaço sem `discard`
 Imagens RBD são *thin*. Arquivos apagados dentro do ext4/xfs só liberam espaço no Ceph se o volume for montado com `discard` (ou com `fstrim` periódico) — a StorageClass pode definir `mountOptions: [discard]`.
 
-## 10. <span id="referencias">📚 Referências</span>
+## 11. <span id="referencias">📚 Referências</span>
 
 - [Ceph CSI — documentação do driver para Kubernetes](https://github.com/ceph/ceph-csi/tree/devel/docs)
 - [Ceph — User Management (cephx, profiles)](https://docs.ceph.com/en/latest/rados/operations/user-management/)
