@@ -169,7 +169,7 @@ kubeseal --kubeconfig ~/.kube/microk8s.config \
 ### 🔹 Instalar o Argo CD na versão da produção
 O `--server-side` evita o erro `metadata.annotations: Too long` nos CRDs. Substitua a versão pela que roda em produção (seção [Descobrindo as Versões da Produção](#versoes-producao)).
 ```bash
-ARGO_VER=v3.4.0
+ARGO_VER=v3.4.3
 klab create namespace argocd
 klab apply -n argocd --server-side -f https://raw.githubusercontent.com/argoproj/argo-cd/${ARGO_VER}/manifests/install.yaml
 klab -n argocd rollout status deploy/argocd-server --timeout=300s
