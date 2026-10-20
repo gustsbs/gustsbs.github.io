@@ -12,8 +12,9 @@ Anotações de administração de pools, datasets, snapshots, clones e replicaç
 6. [Propriedades e Ajustes](#propriedades)
 7. [Monitoramento e Manutenção](#monitoramento-manutencao)
 8. [Expandindo um Pool Após Crescer o Disco Virtual (Caso Real)](#expandir-pool-disco-virtual)
-9. [Boas Práticas](#boas-praticas)
-10. [Referências](#referencias)
+9. [Migração Online do Pool para Outro Disco — iSCSI → vSAN (Caso Real)](#migracao-online-pool)
+10. [Boas Práticas](#boas-praticas)
+11. [Referências](#referencias)
 ---
 
 ## 1. <span id="gerenciamento-pools">🧱 Gerenciamento de Pools</span>
@@ -265,7 +266,262 @@ df -h /caminho-do-dataset
 zfs list -o name,used,avail,mountpoint nome-pool
 ```
 
-## 9. <span id="boas-praticas">🧭 Boas Práticas</span>
+## 9. <span id="migracao-online-pool">🚚 Migração Online do Pool para Outro Disco — iSCSI → vSAN (Caso Real)</span>
+
+Procedimento real usado no servidor NFS `nfs-paginas-novo`: o pool `paginas` estava com ~91% de ocupação em um LUN iSCSI de um storage EMC legado, acessado por caminho único (sem multipath). Ele foi migrado **sem parar o NFS** para um VMDK novo de 3 TB no vSAN do VxRail, usando espelhamento (`attach`), resilver e `split`. Pool, datasets, `fsid` e exports não mudam, e os clientes NFS não precisam remontar.
+
+### 🔹 Ver para onde vai o espaço (dados × snapshots × filhos)
+
+O `-o space` separa o consumo de cada dataset em dados próprios (`USEDDS`), snapshots (`USEDSNAP`) e datasets filhos (`USEDCHILD`). Assim você descobre se apagar snapshots resolve antes de pensar em expandir.
+
+```bash
+zfs list -o space -r paginas
+zfs list -t snapshot -o name,used,refer,creation -s creation
+```
+
+| Coluna | Significado |
+| :--- | :--- |
+| `USEDSNAP` | Espaço que seria liberado se **todos** os snapshots daquele dataset fossem apagados |
+| `USEDDS` | Dados "vivos" do próprio dataset |
+| `USEDCHILD` | Soma dos datasets filhos |
+| `USED` do snapshot | Só o espaço **exclusivo** dele. Blocos compartilhados entre vários snapshots não aparecem aqui |
+
+Um `REFER` que salta muito de um snapshot para o seguinte indica uma gravação grande naquele intervalo (cópia, restauração ou incidente).
+
+### 🔹 Simular quanto um `destroy` de snapshots libera
+
+O `-n` faz um dry-run e o `-v` lista o que seria apagado e o total recuperado. O `%` define um intervalo **inclusivo**, em ordem de criação.
+
+```bash
+zfs destroy -nv paginas/sie@backup-diario-20231101%zfs-auto-snap_daily-2025-12-31-0925
+```
+
+⚠️ **Atenção:** sem o `-n`, o comando apaga de fato e não tem volta. Sempre rode o dry-run antes.
+
+### 🔹 Proteger snapshots importantes com `hold` (ex.: evidência de incidente)
+
+Um snapshot com *hold* não pode ser destruído, nem manualmente, nem pelas rotações automáticas (`zfs-auto-snapshot`, scripts de backup), nem por um `destroy` com intervalo `%`. Use para preservar os snapshots do dia de um incidente de segurança.
+
+```bash
+TAG="incidente-20261009"
+zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs -n1 zfs hold "$TAG"
+zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs zfs holds   # conferir
+```
+
+Para liberar quando o caso for encerrado:
+
+```bash
+zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs -n1 zfs release incidente-20261009
+```
+
+### 🔹 Descobrir em qual disco o pool está de verdade
+
+Nunca presuma que o pool está no disco que aparece no vCenter. O `-P` mostra o caminho completo do vdev.
+
+```bash
+zpool status -P paginas
+lsblk -o NAME,SIZE,TYPE,TRAN,MODEL,SERIAL
+blkid /dev/sd*                      # discos com TYPE="zfs_member" e LABEL do pool
+ls -l /dev/disk/by-id/ | grep -v part
+```
+
+| Pista | Interpretação |
+| :--- | :--- |
+| `TRAN=spi`, `MODEL=Virtual disk` | VMDK entregue pelo hypervisor (aparece no vCenter) |
+| `TRAN=iscsi`, vários discos com o **mesmo SERIAL/WWN** | Um único LUN visto por vários caminhos (o vCenter **não** enxerga LUN montado dentro do guest) |
+| `zfs_member` com o mesmo `UUID` do pool, mas fora do `zpool status` | Label órfão de um vdev antigo (sobra de migração anterior) |
+
+### 🔹 Verificar iSCSI e multipath
+
+Se o pool estiver em LUN iSCSI, confirme se está usando o device do multipath (`/dev/mapper/...` ou `dm-uuid-mpath-...`) ou um caminho cru (`/dev/sdX`).
+
+```bash
+iscsiadm -m session                 # sessões/caminhos ativos
+multipath -ll; ls /dev/mapper/      # só "control" = multipath inativo
+```
+
+⚠️ **Cuidado:** pool sobre um `/dev/sdX` de um LUN com vários caminhos significa **caminho único**. Uma falha de porta ou de controladora do storage derruba o pool e todo o serviço NFS.
+
+### 🔹 Ler o histórico administrativo do pool
+
+O `zpool history` registra todo `create`, `attach`, `detach`, `replace` e `online`, o que permite reconstruir migrações anteriores. O `-i` inclui eventos internos e o `-l` mostra usuário e host.
+
+```bash
+zpool history paginas | grep -Ei 'create|attach|detach|replace|split|add|online'
+zpool history -il paginas | awk '$1 >= "2026-10-05"' | grep -Ev 'snapshot|destroy paginas.*@'
+```
+
+### 🔹 Medir a carga de I/O antes de começar
+
+O resilver disputa I/O com a produção. Meça a carga atual para escolher o horário certo.
+
+```bash
+zpool iostat -v paginas 2 5         # I/O por vdev (confirma qual disco está ativo)
+iostat -x sdd 2 3                   # %util e await do disco de origem
+```
+
+### 🔹 Adicionar o disco novo e detectá-lo sem reboot
+
+Depois de adicionar o disco na VM pelo vCenter (com a VM **sem snapshots**), force o rescan dos controladores SCSI.
+
+```bash
+for h in /sys/class/scsi_host/host*/scan; do echo "- - -" > $h; done
+lsblk -o NAME,SIZE,TRAN,MODEL /dev/sdg
+blkid /dev/sdg                      # esperado: vazio
+wipefs -n /dev/sdg                  # esperado: nenhuma assinatura
+ls -l /dev/disk/by-path/ | grep -w sdg
+```
+
+Use o caminho `by-path` no ZFS. O nome `sdX` pode mudar a cada boot. O VMDK só aparece em `/dev/disk/by-id` se a VM tiver `disk.EnableUUID=TRUE`.
+
+### 🔹 `attach`, `replace` ou `add`?
+
+| Comando | O que faz | Para migrar disco |
+| :--- | :--- | :--- |
+| `zpool attach` | Transforma o vdev em **espelho** e copia tudo para o disco novo | ✅ Recomendado: depois você escolhe quando separar |
+| `zpool replace` | Espelho temporário que **remove o disco antigo sozinho** ao final | ✅ Válido, mas não deixa cópia de rollback |
+| `zpool add` | Cria um **stripe** (soma capacidade, sem redundância) | ❌ Errado: perder qualquer disco perde o pool, e o vdev não sai de forma limpa |
+
+### 🔹 Espelhar o pool no disco novo (`attach`)
+
+O comando retorna em segundos. O resilver roda **no kernel**, então dá para fechar o terminal e não é preciso `nohup`/`tmux`. Se o servidor reiniciar, o resilver retoma sozinho.
+
+```bash
+zpool attach paginas /dev/sdd /dev/disk/by-path/pci-0000:00:10.0-scsi-0:0:2:0
+zpool status paginas
+```
+
+Durante o resilver, as escritas novas já vão para os dois discos. O espelho fica com o tamanho do **menor** disco até o disco antigo sair.
+
+### 🔹 Entender o progresso do resilver
+
+```text
+scan: resilver in progress since Mon Oct 19 23:14:04 2026
+      82.7G scanned at 2.85G/s, 111M issued at 3.82M/s, 1.75T total
+      110M resilvered, 0.01% done, no estimated completion time
+```
+
+| Campo | Significado |
+| :--- | :--- |
+| `scanned` | Varredura de metadados para mapear o que copiar (rápida, mas pesada em leitura) |
+| `issued` | Cópia efetiva, feita em ordem sequencial depois do mapeamento |
+| `resilvered` | Volume já gravado no disco novo |
+| Taxas `at X/s` | **Média desde o início**, não a velocidade atual |
+| `no estimated completion time` | Normal no começo, enquanto ainda não há taxa de cópia |
+
+A linha `since` mostra quando o resilver **atual** começou. Use-a para confirmar que um resilver foi reiniciado.
+
+### 🔹 Reduzir a prioridade ou pausar o resilver (tunables)
+
+Se a produção sofrer, ajuste os parâmetros do módulo em tempo real. Eles valem até o próximo reboot. **Sempre salve os valores originais antes.**
+
+```bash
+cd /sys/module/zfs/parameters
+for p in zfs_resilver_min_time_ms zfs_vdev_scrub_max_active zfs_scan_vdev_limit; do echo "$p=$(cat $p)"; done | tee /root/zfs-tunables-orig.txt
+
+echo 500 > zfs_resilver_min_time_ms      # padrão 3000: menos tempo de resilver por txg
+echo 1048576 > zfs_scan_vdev_limit       # menos I/O em voo por vdev
+echo 1 > zfs_scan_suspend_progress       # PAUSA o scan/resilver (progresso preservado)
+```
+
+| Parâmetro | Efeito |
+| :--- | :--- |
+| `zfs_resilver_min_time_ms` | Tempo mínimo de resilver por txg. Menor = mais gentil com a produção; maior (ex.: 5000) = mais rápido à noite |
+| `zfs_vdev_scrub_max_active` | I/Os simultâneos de scrub/resilver por vdev |
+| `zfs_scan_vdev_limit` | Bytes de scan em voo por vdev |
+| `zfs_scan_suspend_progress` | `1` congela o scan; `0` retoma |
+| `zfs_resilver_disable_defer` | `1` faz um novo `attach` **reiniciar** o resilver em vez de enfileirá-lo |
+
+Para restaurar e retomar:
+
+```bash
+cd /sys/module/zfs/parameters
+while IFS='=' read -r p v; do echo "$v" > "$p"; done < /root/zfs-tunables-orig.txt
+echo 0 > zfs_scan_suspend_progress
+```
+
+⚠️ **Atenção:** com o scan suspenso, o `zpool status` continua mostrando "resilver in progress". Para confirmar que parou, compare o `scanned` entre duas leituras.
+
+### 🔹 Cancelar a migração e o "resilver fantasma"
+
+O `detach` do disco novo cancela o espelho e o pool volta a ser só o disco original.
+
+```bash
+zpool detach paginas /dev/disk/by-path/pci-0000:00:10.0-scsi-0:0:2:0
+```
+
+⚠️ **Pegadinha real:** quando o `detach` acontece **durante a fase de varredura**, o scan continua rodando sozinho, mesmo sem disco de destino, e segue saturando o disco de origem (os sites pararam de responder). Congele na hora:
+
+```bash
+echo 1 > /sys/module/zfs/parameters/zfs_scan_suspend_progress
+```
+
+Se o pool tiver `feature@resilver_defer` ativo, um novo `attach` **não** substitui esse scan pendente: o resilver novo fica na fila. Para retomar corretamente:
+
+```bash
+zpool get feature@resilver_defer paginas
+cd /sys/module/zfs/parameters
+echo 1 > zfs_resilver_disable_defer
+echo 0 > zfs_scan_suspend_progress
+zpool attach paginas /dev/sdd /dev/disk/by-path/pci-0000:00:10.0-scsi-0:0:2:0   # logo em seguida
+zpool status paginas | grep since                                                # deve mostrar o horário de agora
+```
+
+Ao terminar a migração, volte o `zfs_resilver_disable_defer` para `0`.
+
+### 🔹 Limpar um disco que já teve label ZFS
+
+Num `attach` em disco inteiro, o ZFS cria partições (`sdg1` com os dados e `sdg9` reservada de 8M). O label fica na **partição**, então o `labelclear` no disco cru falha com `failed to clear label`.
+
+```bash
+zpool status -P paginas | grep -q 'scsi-0:0:2:0' && echo "PARE: disco no pool" || echo "ok"
+zpool labelclear -f /dev/sdg1
+wipefs -a /dev/sdg1
+wipefs -a /dev/sdg                  # remove GPT primária, de backup e PMBR
+partprobe /dev/sdg; udevadm settle
+lsblk -o NAME,SIZE,FSTYPE,LABEL /dev/sdg   # esperado: só o disco, sem partições
+blkid /dev/sdg*                            # esperado: vazio
+```
+
+Se ainda sobrar partição: `sgdisk --zap-all /dev/sdg`.
+
+⚠️ **Cuidado:** confirme sempre que o disco **não** está no pool antes de qualquer `labelclear`/`wipefs`.
+
+### 🔹 Finalizar: separar o disco antigo (`split`) e crescer o pool
+
+Só depois de `resilvered ... with 0 errors`. O `split` tira o disco antigo do pool e o transforma em um **pool separado, consistente e importável** (não importado). Ele serve de rollback e de cópia de evidência. O `detach` só removeria, sem deixar essa cópia.
+
+```bash
+zpool split paginas paginas_emc_old /dev/sdd
+zpool online -e paginas /dev/disk/by-path/pci-0000:00:10.0-scsi-0:0:2:0   # usa os 3T
+zpool list paginas
+zfs list -r paginas
+```
+
+Para voltar atrás em caso de problema: `zpool import paginas_emc_old`.
+
+### 🔹 Validar o NFS após a migração
+
+```bash
+exportfs -v                         # exports inalterados
+zfs get sharenfs,quota,refquota -r paginas
+df -h /paginas /paginas/web         # e também num cliente NFS, sem remontar
+```
+
+Se houver `quota`/`refquota`, o cliente continua vendo o limite da quota, não o espaço novo do pool.
+
+### 🔹 Desligar o iSCSI antigo (após o período de segurança)
+
+Depois de alguns dias estáveis e com backup validado:
+
+```bash
+iscsiadm -m node -u                 # logout de todas as sessões
+iscsiadm -m node -o delete          # não reconectar no boot
+```
+
+Em seguida, peça o desmapeamento do LUN no storage e remova a NIC iSCSI da VM, se ela não tiver outro uso.
+
+## 10. <span id="boas-praticas">🧭 Boas Práticas</span>
 
 ### 🔹 Nunca use RAID de hardware sob o ZFS
 O ZFS precisa de acesso direto aos discos para gerenciar redundância e integridade — controladoras RAID de hardware escondem o estado real dos discos e quebram a autocorreção do ZFS. Configure a controladora em modo HBA/passthrough.
@@ -288,6 +544,24 @@ Datasets montam sozinhos pela propriedade `mountpoint`, via `zfs-mount.service`/
 ### 🔹 GPT inconsistente pode esconder um pool do `zpool import`
 Se `blkid` mostra `TYPE="zfs_member"` numa partição mas `zpool import` não acha nenhum pool, desconfie da tabela de partições antes de considerar o disco "livre" para reformatar — rode `parted <disco> print free`, corrija (`Fix`) se necessário, e só então reavalie. Formatar um disco por achar que o pool "não existe mais" sem checar isso primeiro pode destruir dados que só pareciam inacessíveis.
 
-## 10. <span id="referencias">📚 Referências</span>
+### 🔹 Confirme onde o pool está antes de expandir
+O disco visível no hypervisor pode não ser o que o pool usa (LUN iSCSI montado no guest não aparece no vCenter, e labels órfãos de migrações antigas confundem). `zpool status -P` é a fonte da verdade.
+
+### 🔹 Migrar disco: `attach` + `split`, nunca `add`
+`attach` + `split` deixa o disco antigo como pool importável para rollback; `replace` é válido mas não deixa cópia; `add` num pool de vdev único cria stripe sem redundância e o vdev não sai mais de forma limpa.
+
+### 🔹 Resilver em storage lento: fora do expediente e com a pausa pronta
+Tenha à mão `zfs_resilver_min_time_ms` e `zfs_scan_suspend_progress` (salvando os valores originais) antes de começar — o resilver pode derrubar a produção em minutos.
+
+### 🔹 `detach` no meio da varredura deixa um scan fantasma
+O scan continua lendo o disco de origem mesmo sem destino. Congele com `zfs_scan_suspend_progress=1`; e, se `feature@resilver_defer` estiver ativo, use `zfs_resilver_disable_defer=1` para o próximo `attach` reiniciar o resilver em vez de enfileirá-lo.
+
+### 🔹 Use nomes de dispositivo estáveis
+Prefira `/dev/disk/by-path` ou `/dev/disk/by-id` a `/dev/sdX` (em VMware, habilite `disk.EnableUUID=TRUE`). Em LUN com vários caminhos, use o device do multipath — nunca um caminho cru.
+
+### 🔹 `zfs hold` em snapshots de incidente
+Aplique o hold antes que a rotação automática apague a evidência; ele também sobrevive a `destroy` com intervalo `%`.
+
+## 11. <span id="referencias">📚 Referências</span>
 
 - [OpenZFS Documentation — Documentação oficial](https://openzfs.github.io/openzfs-docs/)
