@@ -268,7 +268,7 @@ zfs list -o name,used,avail,mountpoint nome-pool
 
 ## 9. <span id="migracao-online-pool">🚚 Migração Online do Pool para Outro Disco — iSCSI → vSAN (Caso Real)</span>
 
-Procedimento real usado no servidor NFS `nfs-paginas-novo`: o pool `paginas` estava com ~91% de ocupação em um LUN iSCSI de um storage EMC legado, acessado por caminho único (sem multipath). Ele foi migrado **sem parar o NFS** para um VMDK novo de 3 TB no vSAN do VxRail, usando espelhamento (`attach`), resilver e `split`. Pool, datasets, `fsid` e exports não mudam, e os clientes NFS não precisam remontar.
+Procedimento real usado no servidor NFS `nfsweb.gsbs.local`: o pool `paginas` estava com ~91% de ocupação em um LUN iSCSI de um storage legado, acessado por caminho único (sem multipath). Ele foi migrado **sem parar o NFS** para um VMDK novo de 3 TB no vSAN do VxRail, usando espelhamento (`attach`), resilver e `split`. Pool, datasets, `fsid` e exports não mudam, e os clientes NFS não precisam remontar.
 
 ### 🔹 Ver para onde vai o espaço (dados × snapshots × filhos)
 
@@ -303,15 +303,15 @@ zfs destroy -nv paginas/sie@backup-diario-20231101%zfs-auto-snap_daily-2025-12-3
 Um snapshot com *hold* não pode ser destruído, nem manualmente, nem pelas rotações automáticas (`zfs-auto-snapshot`, scripts de backup), nem por um `destroy` com intervalo `%`. Use para preservar os snapshots do dia de um incidente de segurança.
 
 ```bash
-TAG="incidente-20261009"
-zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs -n1 zfs hold "$TAG"
-zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs zfs holds   # conferir
+TAG="incidente-20250310"
+zfs list -H -t snapshot -o name -r paginas | grep -E '2025-?03-?(09|1[01])' | xargs -n1 zfs hold "$TAG"
+zfs list -H -t snapshot -o name -r paginas | grep -E '2025-?03-?(09|1[01])' | xargs zfs holds   # conferir
 ```
 
 Para liberar quando o caso for encerrado:
 
 ```bash
-zfs list -H -t snapshot -o name -r paginas | grep -E '2026-?10-?(0[89]|10)' | xargs -n1 zfs release incidente-20261009
+zfs list -H -t snapshot -o name -r paginas | grep -E '2025-?03-?(09|1[01])' | xargs -n1 zfs release incidente-20250310
 ```
 
 ### 🔹 Descobrir em qual disco o pool está de verdade
@@ -348,7 +348,7 @@ O `zpool history` registra todo `create`, `attach`, `detach`, `replace` e `onlin
 
 ```bash
 zpool history paginas | grep -Ei 'create|attach|detach|replace|split|add|online'
-zpool history -il paginas | awk '$1 >= "2026-10-05"' | grep -Ev 'snapshot|destroy paginas.*@'
+zpool history -il paginas | awk '$1 >= "2025-03-01"' | grep -Ev 'snapshot|destroy paginas.*@'
 ```
 
 ### 🔹 Medir a carga de I/O antes de começar
@@ -396,7 +396,7 @@ Durante o resilver, as escritas novas já vão para os dois discos. O espelho fi
 ### 🔹 Entender o progresso do resilver
 
 ```text
-scan: resilver in progress since Mon Oct 19 23:14:04 2026
+scan: resilver in progress since Mon Mar 10 23:14:04 2025
       82.7G scanned at 2.85G/s, 111M issued at 3.82M/s, 1.75T total
       110M resilvered, 0.01% done, no estimated completion time
 ```
@@ -441,6 +441,30 @@ echo 0 > zfs_scan_suspend_progress
 ```
 
 ⚠️ **Atenção:** com o scan suspenso, o `zpool status` continua mostrando "resilver in progress". Para confirmar que parou, compare o `scanned` entre duas leituras.
+
+### 🔹 Alternar a prioridade entre expediente e madrugada
+
+Em storage lento, o resilver pode levar dias. No caso real, foram 4 dias e 11h. O que funcionou foi prioridade **mínima** durante o expediente e **máxima** fora dele, com o `at` fazendo a troca sozinho:
+
+```bash
+cd /sys/module/zfs/parameters
+# Expediente: prioridade mínima (sem pausar)
+echo 1      > zfs_resilver_min_time_ms
+echo 262144 > zfs_scan_vdev_limit          # 256 KiB em voo por vdev
+
+# Noite: prioridade máxima, agendada
+echo 'cd /sys/module/zfs/parameters && echo 0 > zfs_scan_suspend_progress && echo 5000 > zfs_resilver_min_time_ms && echo 4194304 > zfs_scan_vdev_limit' | at 20:00
+# Manhã: volta ao mínimo antes do expediente
+echo 'echo 1 > /sys/module/zfs/parameters/zfs_resilver_min_time_ms; echo 262144 > /sys/module/zfs/parameters/zfs_scan_vdev_limit' | at 07:30 tomorrow
+atq
+```
+
+| Parâmetro antigo | Situação no OpenZFS 2.x |
+| :--- | :--- |
+| `zfs_resilver_delay`, `zfs_scrub_delay` | **Não existem mais.** Foram removidos na 0.8, junto com o scrub sequencial. O `echo` falha com `No such file or directory` |
+| `zfs_vdev_scrub_min_active` / `zfs_vdev_scrub_max_active` | Já vêm em `1` por padrão. Baixar não muda nada |
+
+As taxas `at X/s` do `zpool status` são **médias desde o início** do resilver. Para medir o efeito de uma mudança, compare o `issued` entre duas leituras ou use `iostat -xm <disco> 5`.
 
 ### 🔹 Cancelar a migração e o "resilver fantasma"
 
@@ -492,13 +516,49 @@ Se ainda sobrar partição: `sgdisk --zap-all /dev/sdg`.
 Só depois de `resilvered ... with 0 errors`. O `split` tira o disco antigo do pool e o transforma em um **pool separado, consistente e importável** (não importado). Ele serve de rollback e de cópia de evidência. O `detach` só removeria, sem deixar essa cópia.
 
 ```bash
-zpool split paginas paginas_emc_old /dev/sdd
+zpool split paginas paginas_old /dev/sdd
 zpool online -e paginas /dev/disk/by-path/pci-0000:00:10.0-scsi-0:0:2:0   # usa os 3T
 zpool list paginas
 zfs list -r paginas
 ```
 
-Para voltar atrás em caso de problema: `zpool import paginas_emc_old`.
+### 🔹 Importar com segurança o pool separado (rollback)
+
+O pool criado pelo `split` tem **os mesmos mountpoints** do original (`/paginas`, `/paginas/web`...). Um `zpool import paginas_old` simples tentaria montar por cima da produção. Para consultar ou recuperar arquivos, importe sem montar, em modo somente leitura e com raiz alternativa:
+
+```bash
+zpool import | grep -A3 paginas_old                            # confirmar que está importável
+zpool import -N -o readonly=on -R /mnt/rollback paginas_old    # -N: não monta; -R: raiz alternativa
+zfs mount -a                                                       # agora monta em /mnt/rollback/...
+zpool export paginas_old                                       # ao terminar
+```
+
+⚠️ **Cuidado:** nunca importe o pool de rollback sem `-R`.
+
+### 🔹 Garantir que o pool antigo não volte no boot
+
+Depois do `split`, confirme que só o pool de produção está no cachefile e que o boot importa pelo cache, não por varredura de discos:
+
+```bash
+zdb -C -U /etc/zfs/zpool.cache | grep -E "^\S+:$"       # esperado: só "paginas:"
+systemctl is-enabled zfs-import-cache zfs-import-scan    # esperado: enabled / disabled
+```
+
+Se `zfs-import-scan` estiver habilitado, o boot importa **qualquer** pool que encontrar, inclusive o de rollback, e cai no problema de mountpoints da seção anterior.
+
+### 🔹 Restaurar os parâmetros e validar com scrub
+
+Ao final, volte os tunables ao padrão e rode um scrub. Ele lê tudo no disco novo e confere os checksums, o que prova que a cópia está íntegra. Agende fora do expediente:
+
+```bash
+cd /sys/module/zfs/parameters
+while IFS='=' read -r p v; do echo "$v" > "$p"; done < /root/zfs-tunables-orig.txt
+echo 0 > zfs_resilver_disable_defer; echo 0 > zfs_scan_suspend_progress
+grep . zfs_resilver_min_time_ms zfs_vdev_scrub_max_active zfs_scan_vdev_limit zfs_scan_suspend_progress zfs_resilver_disable_defer
+
+echo 'zpool scrub paginas' | at 22:00
+zpool status paginas | sed -n '1,4p'                     # no dia seguinte: "repaired 0B ... with 0 errors"
+```
 
 ### 🔹 Validar o NFS após a migração
 
@@ -509,6 +569,35 @@ df -h /paginas /paginas/web         # e também num cliente NFS, sem remontar
 ```
 
 Se houver `quota`/`refquota`, o cliente continua vendo o limite da quota, não o espaço novo do pool.
+
+### 🔹 Por que a reta final do resilver é tão lenta: fragmentação
+
+No caso real, o resilver copiou ~60 MB/s no começo e caiu para ~3 MB/s nos últimos 2%, mesmo com os tunables no máximo. O motivo era a fragmentação:
+
+```bash
+zpool list -o name,size,alloc,free,cap,frag paginas
+zfs list -H -t snapshot -r paginas | wc -l
+```
+
+| Conceito | O que significa |
+| :--- | :--- |
+| `FRAG` | Fragmentação do **espaço livre**, não dos arquivos. Pool cheio por muito tempo significa só buracos pequenos, e as gravações ficam espalhadas |
+| Snapshots | Prendem blocos antigos no meio do disco. Muitos snapshots (eram ~800) agravam a fragmentação |
+| Fim do resilver | Os últimos blocos são pequenos e dispersos, e um storage "non-flash" faz leitura aleatória devagar. Os tunables não ajudam, porque o gargalo é o IOPS do disco |
+| Depois da expansão | O `FRAG` caiu de 86% para 57%, porque o espaço novo é contínuo. Os dados antigos **continuam fragmentados**: o resilver copia bloco a bloco, sem reorganizar |
+
+O ZFS não tem desfragmentação. A única forma de reorganizar os dados é reescrevê-los com `zfs send | zfs recv` para um pool novo.
+
+### 🔹 Resultado real (linha do tempo)
+
+| Etapa | Quando | Duração |
+| :--- | :--- | :--- |
+| Diagnóstico e adição do disco | Dia 1, 16:22–16:47 | ~25 min |
+| 1ª tentativa durante o expediente (cancelada por impacto nos sites) | Dia 1, 16:55–17:05 | ~10 min |
+| Resilver (retomado à noite) | Dia 1, 23:14 → Dia 6, 10:14 | 4 dias e 11h (1,83 TB) |
+| `split`, `online -e` e validações | Dia 6, 15:46–16:03 | ~15 min |
+
+Resultado: de 2,0 TB com 91% de uso para 3,0 TB com 58%, sem alteração nos exports e sem remontagem nos clientes.
 
 ### 🔹 Desligar o iSCSI antigo (após o período de segurança)
 
@@ -561,6 +650,18 @@ Prefira `/dev/disk/by-path` ou `/dev/disk/by-id` a `/dev/sdX` (em VMware, habili
 
 ### 🔹 `zfs hold` em snapshots de incidente
 Aplique o hold antes que a rotação automática apague a evidência; ele também sobrevive a `destroy` com intervalo `%`.
+
+### 🔹 Migração de disco em storage lento: planeje em dias, não em horas
+Um resilver de ~2 TB saindo de um LUN "non-flash" fragmentado levou 4,5 dias, e um scrub anterior tinha levado 9h. Use o tempo do último scrub como **piso** da estimativa, comunique uma janela longa e deixe prontas as trocas de prioridade entre expediente e madrugada.
+
+### 🔹 Nunca comece um resilver em produção durante o expediente
+A fase inicial de varredura lê metadados em ritmo máximo e pode derrubar os serviços em poucos minutos. Comece à noite. Se precisar cancelar, lembre do scan fantasma.
+
+### 🔹 Pool de rollback: sempre importe com `-N -R`
+O pool gerado pelo `split` tem os mesmos mountpoints da produção. Importe sem montar e com raiz alternativa, e mantenha `zfs-import-scan` desabilitado.
+
+### 🔹 Uma única política de snapshots
+Duas rotinas sobrepostas (script de backup diário + `zfs-auto-snapshot`) geram centenas de snapshots duplicados, aumentam a fragmentação e alongam todo scrub ou resilver. Escolha uma e defina a retenção por dataset.
 
 ## 11. <span id="referencias">📚 Referências</span>
 
