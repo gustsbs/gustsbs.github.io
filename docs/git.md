@@ -554,6 +554,50 @@ Traz as referências de todas as branches remotas para o repositório local, sem
 git fetch --all
 ```
 
+### 🔹 Atualizar a `main` só por avanço direto (`--ff-only`)
+O `git pull` é um `git fetch` seguido de um `git merge`. Com `--ff-only`, o merge só acontece se der para simplesmente **avançar o ponteiro** da branch local até o commit do servidor (*fast-forward*). Se a branch local tiver commits que não estão no remoto, o Git para com erro em vez de criar sozinho um commit "Merge branch 'main' of ...", e você decide o que fazer.
+```bash
+git switch main
+git pull --ff-only origin main
+```
+
+| Situação da `main` local | `git pull` | `git pull --ff-only` |
+| :--- | :--- | :--- |
+| Atrás do remoto, sem commits próprios | Avança até o remoto | Avança até o remoto |
+| Com commits que não estão no remoto | Cria um commit de merge automático | Para com erro e não altera nada |
+
+### 🔹 Rotina de sincronização entre duas máquinas
+Quando o mesmo projeto é trabalhado em mais de um computador (ex.: PC do trabalho e notebook), o servidor remoto (GitLab/GitHub) é o **único ponto de encontro**: o que não foi enviado com `push` não existe para a outra máquina.
+
+**1. Ao começar a trabalhar:** atualize as referências, a `main` e crie a branch do trabalho a partir dela.
+```bash
+git fetch origin --prune                 # atualiza as referências remotas e remove as de branches já apagadas no servidor
+git switch main
+git pull --ff-only origin main           # deixa a main local igual à do servidor
+git switch -c docs/rotina-duas-maquinas  # branch nova para o trabalho do dia
+```
+
+**2. Para continuar uma branch começada na outra máquina** (ainda não mesclada):
+```bash
+git fetch origin
+git switch docs/rotina-duas-maquinas     # se ela não existe nesta máquina, o Git cria a partir de origin/docs/rotina-duas-maquinas
+git pull --ff-only                       # traz os commits enviados da outra máquina
+```
+
+**3. Ao terminar o dia ou antes de trocar de máquina:** nada pode ficar só local.
+```bash
+git status                               # nada esquecido sem commit?
+git push                                 # envia os commits ao servidor
+```
+
+**4. De vez em quando, limpe as branches locais já mescladas:** o `-d` só apaga branches cujo conteúdo já está na `main`; se alguma tiver trabalho não mesclado, o Git recusa e mostra o nome.
+```bash
+git fetch origin --prune
+git branch --merged main | grep -vE '^\*|main$' | xargs -r git branch -d
+```
+
+⚠️ **Cuidado:** depois que a branch foi mesclada pelo Merge Request, não continue commitando nela. Os commits novos não entram em nenhum MR e ficam esquecidos. Crie uma branch nova a partir da `main` atualizada; se já commitou, leve o commit para uma branch nova com `git switch -c <nova-branch>` seguido de `git rebase origin/main`.
+
 ### 🔹 Descartar tudo o que é local e espelhar fielmente o servidor remoto
 
 **1.** Busque as referências mais atuais do servidor:
@@ -764,6 +808,7 @@ git commit -m "chore(repo): reorganizar estrutura de diretórios"
 - ✅ Antes de abrir o Merge Request/Pull Request, revise ortografia, comandos, caminhos e datas — e confira se os exemplos ainda são consistentes com o restante do repositório.
 - ✅ Ao concluir uma entrega estável, prefira criar uma tag de versão (seção 10) a deixar apenas o commit "solto" no histórico — isso facilita rollback e auditoria futura.
 - ✅ Apague branches temporárias após o merge; branches vivas e esquecidas divergem do código real e confundem o time.
+- ✅ Não guarde repositórios Git dentro de pastas sincronizadas (OneDrive, Dropbox, Google Drive). O serviço sincroniza os arquivos internos da pasta `.git` entre as máquinas por conta própria, o que gera erros como `cannot lock ref 'refs/remotes/origin/main': is at ... but expected ...`, arquivos `.lock` presos e até objetos corrompidos. Mantenha um clone por máquina fora da pasta sincronizada (ex.: `~/projetos`) e sincronize só por `pull`/`push` (seção 12).
 
 ## 16. <span id="referencias">📚 Referências</span>
 
