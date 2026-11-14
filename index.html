@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>gustsbs | GitHub Pages</title>
+    <title>gustsbs | GitOps & Infraestrutura</title>
+    <meta name="description" content="Modelo de operação GitOps para sistemas de código aberto (GLPI e WordPress) e central de documentação de infraestrutura.">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
@@ -14,40 +15,120 @@
         <p>IT Analyst at UFPR | DevOps Researcher at UTFPR | Infrastructure Specialist</p>
 
         <nav>
-            <a href="https://github.com/gustsbs" target="_blank">GitHub</a>
-            <a href="https://linkedin.com/in/gustavosbs" target="_blank">LinkedIn</a>
+            <a href="#gitops">GitOps</a>
+            <a href="#documentacao">Documentação</a>
+            <a href="https://github.com/gustsbs" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://linkedin.com/in/gustavosbs" target="_blank" rel="noopener">LinkedIn</a>
         </nav>
     </header>
 
     <main class="container">
-        <section id="sobre">
-            <h2>Work in Progress...</h2>
-            <p></p>
-        </section>
 
-        <section id="projetos">
-            <h2>My Projects</h2>
+        <!-- ================================================================
+             GITOPS — templates anonimizados do modelo de operação
+             (produção técnica do mestrado, mantida continuamente)
+             ================================================================ -->
+        <section id="gitops">
+            <h2>GitOps</h2>
+            <p class="secao-intro">
+                Modelo de operação para sistemas de código aberto via GitOps:
+                imagens imutáveis, manifestos declarativos (Kustomize + ArgoCD)
+                e segredos versionados de forma segura. Os templates são
+                anonimizados e podem ser adaptados a qualquer instituição.
+            </p>
+
             <div class="grid-projetos">
 
-                <div class="card">
-			        <h3>Central de documentação</h3>
-			        <p>Comandos, serviços e administração de servidores em geral.</p>
-			        <a href="docs/index.html" class="btn">Acessar Documentação</a>                                                        
-		        </div>
-
-                <div class="card">
-                    <h3>Project  01</h3>
-                    <p>em breve</p>
-                    <a href="#" class="btn">Ver Repositório</a>
+                <div class="card card-gitops">
+                    <div>
+                        <span class="tag">ITSM</span>
+                        <h3>🎫 GLPI</h3>
+                        <p>Central de serviços e inventário de TI em Kubernetes:
+                           imagem própria, banco externo, armazenamento persistente
+                           e esteira CI/CD até o sync no ArgoCD.</p>
+                    </div>
+                    <a class="btn btn-desabilitado" aria-disabled="true">Templates em breve</a>
                 </div>
-                <div class="card">
-                    <h3>Project 02</h3>
-                    <p>em breve</p>
-                    <a href="#" class="btn">Ver Repositório</a>
-                </div>		        
-               
+
+                <div class="card card-gitops">
+                    <div>
+                        <span class="tag">CMS</span>
+                        <h3>📰 WordPress</h3>
+                        <p>Provisionamento de múltiplos sites a partir de uma base
+                           comum: imagens nginx/php-fpm/redis separadas, overlays
+                           por site e uploads em armazenamento de objetos (S3).</p>
+                    </div>
+                    <a class="btn btn-desabilitado" aria-disabled="true">Templates em breve</a>
+                </div>
+
             </div>
         </section>
+
+        <!-- ================================================================
+             CENTRAL DE DOCUMENTAÇÃO — subdividida por categoria
+             ================================================================ -->
+        <section id="documentacao">
+            <h2>Central de Documentação</h2>
+            <p class="secao-intro">
+                Comandos, serviços e administração de servidores, organizados por área.
+            </p>
+
+            <div class="grid-projetos">
+
+                <div class="card card-categoria">
+                    <div>
+                        <h3>☸️ Containers & Orquestração</h3>
+                        <ul class="lista-docs">
+                            <li><a href="docs/view.html?doc=kubernetes">Kubernetes & Clusters</a></li>
+                            <li><a href="docs/view.html?doc=argocd">ArgoCD & GitOps</a></li>
+                            <li><a href="docs/view.html?doc=docker">Docker</a></li>
+                            <li><a href="docs/view.html?doc=microk8s">MicroK8s (laboratório)</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-categoria">
+                    <div>
+                        <h3>🦑 Armazenamento</h3>
+                        <ul class="lista-docs">
+                            <li><a href="docs/view.html?doc=ceph">Ceph</a></li>
+                            <li><a href="docs/view.html?doc=nfs">NFS</a></li>
+                            <li><a href="docs/view.html?doc=zfs">ZFS</a></li>
+                            <li><a href="docs/view.html?doc=xfs">XFS</a></li>
+                            <li><a href="docs/view.html?doc=jfs">JFS</a></li>
+                            <li><a href="docs/view.html?doc=fio">Fio (benchmark de E/S)</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-categoria">
+                    <div>
+                        <h3>🌐 Serviços & Virtualização</h3>
+                        <ul class="lista-docs">
+                            <li><a href="docs/view.html?doc=proxmox">Proxmox</a></li>
+                            <li><a href="docs/view.html?doc=ldap">LDAP & Autenticação</a></li>
+                            <li><a href="docs/view.html?doc=mysql">MySQL/MariaDB</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card card-categoria">
+                    <div>
+                        <h3>🛠️ Ferramentas</h3>
+                        <ul class="lista-docs">
+                            <li><a href="docs/view.html?doc=git">Git & Controle de Versão</a></li>
+                            <li><a href="docs/view.html?doc=powershell">PowerShell</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="acao-secao">
+                <a href="docs/index.html" class="btn">Ver todos os módulos</a>
+            </div>
+        </section>
+
     </main>
 
     <footer>
