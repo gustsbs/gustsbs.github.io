@@ -47,7 +47,7 @@
                            imagem própria, banco externo, armazenamento persistente
                            e esteira CI/CD até o sync no ArgoCD.</p>
                     </div>
-                    <a class="btn btn-desabilitado" aria-disabled="true">Templates em breve</a>
+                    <a href="https://github.com/gustsbs/gitops-opensource-templates/tree/main/infra/gitops-glpi" class="btn" target="_blank" rel="noopener">Ver templates do GLPI</a>
                 </div>
 
                 <div class="card card-gitops">
@@ -55,13 +55,23 @@
                         <span class="tag">CMS</span>
                         <h3>📰 WordPress</h3>
                         <p>Provisionamento de múltiplos sites a partir de uma base
-                           comum: imagens nginx/php-fpm/redis separadas, overlays
-                           por site e uploads em armazenamento de objetos (S3).</p>
+                           comum: imagens nginx/php-fpm/redis separadas, um overlay
+                           e um volume persistente por site, versão
+                           única para todo o parque.</p>
                     </div>
-                    <a class="btn btn-desabilitado" aria-disabled="true">Templates em breve</a>
+                    <a href="https://github.com/gustsbs/gitops-opensource-templates/tree/main/infra/gitops-wordpress" class="btn" target="_blank" rel="noopener">Ver templates do WordPress</a>
                 </div>
 
             </div>
+
+            <div class="acao-secao">
+                <a href="https://github.com/gustsbs/gitops-opensource-templates" class="btn" target="_blank" rel="noopener">Repositório completo</a>
+                <a href="https://github.com/gustsbs/gitops-opensource-templates/tree/main/laboratorio" class="btn btn-secundario" target="_blank" rel="noopener">Reproduzir em laboratório (MicroK8s)</a>
+            </div>
+            <p class="nota-licenca">
+                Código aberto sob a licença Apache-2.0 · produção técnica do Mestrado
+                em Computação Aplicada (PPGCA/UTFPR).
+            </p>
         </section>
 
         <!-- ================================================================
