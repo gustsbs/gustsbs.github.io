@@ -176,6 +176,14 @@ git rm nomedoarquivo
 git mv nomeantigo.txt nomenovo.txt
 ```
 
+O `git rm` aceita vários arquivos de uma vez e já deixa a remoção na área de staging, pronta para o commit. Com `--cached`, o arquivo sai do rastreamento mas continua no disco (útil para algo que foi commitado por engano e deve passar a constar no `.gitignore`).
+```bash
+git rm Dockerfile-bkp Jenkinsfile-bkp nginx.conf
+git commit -m "chore: remove arquivos de backup sem uso"
+
+git rm --cached deploy-token.yaml
+```
+
 ## 4. <span id="git-log">📜 Histórico de Commits (git log)</span>
 
 Para inspecionar a linha do tempo e auditoria do repositório.
@@ -327,6 +335,27 @@ git branch --merged
 git branch --no-merged
 ```
 
+### 🔹 Excluir em lote as branches locais já mescladas
+Lista as branches cujo conteúdo já está em `origin/main`, tira da lista a branch atual (`*`) e a `main`, e passa o resto para o `git branch -d`. O `-r` do `xargs` evita rodar o comando quando a lista vem vazia.
+```bash
+git fetch origin main
+git branch --merged origin/main | grep -vE '^\*|main$' | xargs -r git branch -d
+```
+
+| Referência | Quando usar |
+| :--- | :--- |
+| `--merged main` | A `main` local está atualizada (`git pull` feito antes). |
+| `--merged origin/main` | A `main` local pode estar atrás do servidor. Compara com o que o `fetch` acabou de trazer, então pega também as branches mescladas por MR que ainda não chegaram na `main` local. |
+
+O `-d` só apaga branch mesclada: se alguma tiver commits fora da `main`, o Git recusa e mostra o nome, sem perder nada.
+
+### 🔹 Encontrar branches locais cujo remoto já foi apagado
+Depois de um `git fetch --prune`, o `-vv` marca com `[gone]` as branches locais que acompanhavam uma branch remota que não existe mais (típico de branch mesclada por MR com "Delete source branch").
+```bash
+git fetch --prune
+git branch -vv | grep ': gone]'
+```
+
 ## 7. <span id="git-stash">🎒 Guardando Trabalho Temporário (git stash)</span>
 
 Guarda mudanças ainda não commitadas numa "gaveta" temporária, deixando o diretório de trabalho limpo — ideal para trocar de branch rapidamente sem precisar commitar algo incompleto.
@@ -448,6 +477,12 @@ git push --set-upstream origin novabranch
 ### 🔹 Excluir uma branch remota
 ```bash
 git push origin --delete nomedabranch
+```
+
+Se o servidor responder `error: unable to delete 'nomedabranch': remote ref does not exist`, a branch já não existe lá. No GitLab isso acontece quando o Merge Request foi mesclado com a opção **Delete source branch**. O que sobrou é só a referência antiga na sua máquina (`origin/nomedabranch`), que se limpa com:
+```bash
+git fetch --prune
+git branch -a        # confere: não deve mais aparecer remotes/origin/nomedabranch
 ```
 
 ### 🔹 Forçar push com segurança
