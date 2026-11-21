@@ -393,6 +393,27 @@ git stash show -p stash@{0}
 git stash drop stash@{0}
 ```
 
+### 🔹 Levar alterações não commitadas para a `main` atualizada
+Quando você editou arquivos numa branch que já foi mesclada (ou na `main` desatualizada), o `git switch main` falha com `error: Your local changes to the following files would be overwritten by checkout`. O Git se recusa a trocar porque o arquivo é diferente nas duas branches e a troca apagaria a sua edição. O stash guarda a edição, a `main` é atualizada, e o `pop` devolve a edição por cima dela.
+```bash
+git stash                          # guarda as alterações e limpa o diretório
+git switch main && git pull        # atualiza a main (já com o merge do MR)
+git stash pop                      # devolve as alterações em cima da main nova
+git status --short                 # confere:  M CHANGELOG.md
+git switch -c docs/changelog-v1.5  # branch nova para o commit
+```
+
+Se o `pop` der conflito, o Git marca os trechos no arquivo e **não** remove o stash da lista: resolva o conflito, faça `git add` e depois `git stash drop` para descartá-lo.
+
+### 🔹 Guardar só um arquivo não rastreado
+Útil quando um arquivo novo, que ainda não deve ir para o repositório, impede um passo que exige `git status` vazio (ex.: criar a tag de uma publicação). `--include-untracked` com um caminho guarda só aquele arquivo.
+```bash
+git stash push --include-untracked -m "wip: Jenkinsfile" -- Jenkinsfile
+git status --short                 # vazio
+git tag php-8.5.12-v1.1 && git push origin php-8.5.12-v1.1
+git stash pop                      # o Jenkinsfile volta
+```
+
 ## 8. <span id="git-merge-rebase">🚀 Integração de Código: Git Merge vs Git Rebase</span>
 
 ### 1️⃣ git merge — Combina o histórico de dois ramos criando um novo commit de merge.
